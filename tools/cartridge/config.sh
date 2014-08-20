@@ -32,6 +32,7 @@ SED=`which sed`
 CP=`which cp`
 MV=`which mv`
 CURL=`which curl`
+HOSTNAME=`which hostname`
 
 HOSTSFILE=/etc/hosts
 DATE=`date +%d%m%y%S`
@@ -61,7 +62,8 @@ set_hostnames() {
     ${ECHO} "${ipaddress}  ${hostname}" >> ${HOSTSFILE}
     ${ECHO} "127.0.0.1 ${HOST}" >> ${HOSTSFILE}
 
-    /etc/init.d/hostname start
+    #/etc/init.d/hostname start
+    service hostname start
 }
 
 run_chef_client() {
@@ -126,7 +128,7 @@ if [[ $answer = y ]] ; then
         NODEID="${RANDOMNUMBER}.${DEPLOYMENT}.${SERVICE_NAME}"
 
         ${ECHO} -e "\nNode Id ${NODEID}\n"
-        ${ECHO} -e "\nDomain ${DOMAIN}\n"
+        ${ECHO} -e "\nDomain ${CHEF_HOSTNAME}\n"
 
         # set host names and update hosts file
         ${ECHO} -e "Updating hostnames"
