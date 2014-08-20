@@ -24,7 +24,7 @@ template("#{tomcat_home}/conf/server.xml") do
   action :create
 end
 
-template "/mnt/tomcat"
+cookbook_file "/mnt/tomcat"
 
 execute "Set tomcat home permission" do
 	path 	"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

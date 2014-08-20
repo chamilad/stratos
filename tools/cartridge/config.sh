@@ -78,11 +78,11 @@ run_chef_client() {
     ${CHEF_REGISTRATION}
 
     ${ECHO} "Creating chef-client configuration"
-    cat > /etc/chef/client.rb << EOF
+    cat > /etc/chef/client.rb << EOH
     log_level       :info
     log_location    STDOUT
     chef_server_url "https://${CHEF_HOSTNAME}"
-    EOF
+EOH
 
     ${ECHO} "Creating run list"
     RUN_LIST_FILE=/etc/chef/run_list.json
