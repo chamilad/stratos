@@ -1,14 +1,14 @@
 # require stratos_base
 
-default[:base][:package_repo]          = "http://10.4.128.7"
-default[:base][:local_package_dir]     = "/mnt/packs"
+default[:base][:package_repo]          = 'http://10.4.128.7'
+default[:base][:local_package_dir]     = '/mnt/packs'
 
-default[:mb][:ip]                      = "127.0.0.1"
-default[:mb][:port]                    = "61616"
-default[:mb][:type]                    = "activemq" #in wso2 mb case, value should be 'wso2mb'
+default[:mb][:ip]                      = '127.0.0.1'
+default[:mb][:port]                    = '61616'
+default[:mb][:type]                    = 'activemq' #in wso2 mb case, value should be 'wso2mb'
 
-default[:cep][:ip]                     = "127.0.0.1"
-default[:cep][:port]                   = "7611"
+default[:cep][:ip]                     = '127.0.0.1'
+default[:cep][:port]                   = '7611'
 
 default[:truststore][:password]        = 'wso2carbon'
 

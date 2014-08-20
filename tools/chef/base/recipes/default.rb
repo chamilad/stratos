@@ -1,1 +1,1 @@
-include_recipe "stratos_base"
+include_recipe 'stratos_base'
