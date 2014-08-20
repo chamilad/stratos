@@ -99,6 +99,12 @@ execute "enable ssl module" do
   action :run
 end
 
+#Enabling ssl host
+execute "enable ssl module" do
+  command "a2ensite default-ssl"
+  action :run
+end
+
 #Restarting apache to apply cheges
 execute "apache2 relaod" do
   command "service apache2 restart"
