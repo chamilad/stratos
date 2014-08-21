@@ -76,7 +76,7 @@ run_chef_client() {
     chmod 600 /etc/chef/*.pem
 
     ${ECHO} "Registering chef-client with server"
-    CHEF_REGISTRATION="${CHEF_CLIENT} -S https://${CHEF_HOSTNAME} -K ${VALIDATER_KEY}"
+    CHEF_REGISTRATION="${CHEF_CLIENT} -S https://${CHEF_HOSTNAME} -K ${VALIDATER_KEY} -l debug"
     ${CHEF_REGISTRATION}
 
     ${ECHO} "Creating chef-client configuration"
@@ -92,7 +92,7 @@ EOH
     printf '{"run_list" : ["role[%s]"]}\n' "${SERVICE_NAME}" > ${RUN_LIST_FILE}
 
     ${ECHO} "Running chef-client"
-    CHEF_CLIENT_RUN="${CHEF_CLIENT} -j ${RUN_LIST_FILE} -l info"
+    CHEF_CLIENT_RUN="${CHEF_CLIENT} -j ${RUN_LIST_FILE} -l debug"
     ${CHEF_CLIENT_RUN}
 }
 

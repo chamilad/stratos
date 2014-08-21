@@ -24,7 +24,7 @@ end
 
 template '/etc/profile.d/java_home.sh' do
 	mode '0755'
-	#variables :temp_vars => {:java_home => java_home}
+	variables :java_home => java_home
 end
 
 
