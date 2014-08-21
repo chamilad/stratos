@@ -1,15 +1,15 @@
 deployment_code='cartridge_agent'
 carbon_version=node[:agent][:version]
-service_code='cartridge_agent'
+service_code='cartridge-agent'
 carbon_home="#{node[:agent][:target]}/apache-stratos-#{service_code}-#{carbon_version}"
 
-service_templates=%w('bin/stratos.sh'
-                    'conf/templates/jndi.properties.template'
-                    'extensions/artifacts-updated.sh'
-                    'extensions/clean.sh'
-                    'extensions/instance-activated.sh'
-                    'extensions/instance-started.sh'
-                    'extensions/start-servers.sh')
+service_templates=%w(bin/stratos.sh
+                    conf/templates/jndi.properties.template
+                    extensions/artifacts-updated.sh
+                    extensions/clean.sh
+                    extensions/instance-activated.sh
+                    extensions/instance-started.sh
+                    extensions/start-servers.sh)
 agent_initialize "#{deployment_code}" do
 	repo 		node[:base][:package_repo]
 	version 	carbon_version
