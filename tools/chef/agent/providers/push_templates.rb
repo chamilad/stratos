@@ -4,10 +4,10 @@
 
 action :push do
 	name.each do |template_name|
-		template "#{@current_resource.target}/#{template_name}" do
-			owner @current_resource.owner
-			group @current_resource.group
-			variables :carbon_home => @current_resource.target
+		template "#{new_resource.target}/#{template_name}" do
+			owner new_resource.owner
+			group new_resource.group
+			variables :carbon_home => new_resource.target
 			mode '0755'
 		end
 	end

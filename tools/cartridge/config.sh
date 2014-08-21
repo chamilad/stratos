@@ -85,6 +85,7 @@ run_chef_client() {
     log_level       :info
     log_location    STDOUT
     chef_server_url "https://${CHEF_HOSTNAME}"
+    no_lazy_load true
 EOH
 
     ${ECHO} "Creating run list"
@@ -140,11 +141,13 @@ if [[ $answer = y ]] ; then
 
         set_hostnames ${CHEF_IP} ${CHEF_HOSTNAME}
 
-	    #install_chef_client
-	    ${ECHO} -e "Installing chef-client"
-	    ${CURL} -L https://www.opscode.com/chef/install.sh | bash
-	    ${MKDIR} /etc/chef
-	    cd /etc/chef/
+        if [ -z `which chef-client` ]; then
+    	    #install_chef_client
+    	    ${ECHO} -e "Installing chef-client"
+    	    ${CURL} -L https://www.opscode.com/chef/install.sh | bash
+    	    ${MKDIR} /etc/chef
+    	    cd /etc/chef/
+        fi
 
 	    run_chef_client
 	elif [[ ${CONFIG_AUTO_FLAG} -eq "puppet" ]]; then

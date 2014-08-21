@@ -8,47 +8,47 @@
 # attribute :owner, :kind_of => String
 
 action :init do
-	directory "#{@current_resource.local_dir}"
+	directory "#{new_resource.local_dir}"
 
-	cookbook_file "#{@current_resource.local_dir}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}-bin.zip"
+	cookbook_file "#{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip"
 
-	execute "Creating target for #{@current_resource.name}" do
+	execute "Creating target for #{new_resource.name}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin','/sbin','/bin']
-		command "mkdir -p #{@current_resource.target}"
+		command "mkdir -p #{new_resource.target}"
 		action :run
 	end
 
-	execute "Creating local package repo for #{@current_resource.name}" do
+	execute "Creating local package repo for #{new_resource.name}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin', '/opt/java/bin/']
-		command "mkdir -p #{@current_resource.local_dir}"
-		not_if { ::File.exists?(@current_resource.local_dir) }
+		command "mkdir -p #{new_resource.local_dir}"
+		not_if { ::File.exists?(new_resource.local_dir) }
 	end
 
-	# execute "Downloading apache-stratos-#{@current_resource.service}-#{@current_resource.version}-bin.zip" do
+	# execute "Downloading apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip" do
 	# 	path '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-	# 	cwd @current_resource.local_dir
-	# 	not_if { ::File.exists? ("#{@current_resource.local_dir}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}-bin.zip")}
+	# 	cwd new_resource.local_dir
+	# 	not_if { ::File.exists? ("#{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip")}
 
 	# end
 
-	execute "Extracting stratos #{@current_resource.service}-#{@current_resource.version}.zip for #{@current_resource.name}" do
+	execute "Extracting stratos #{new_resource.service}-#{new_resource.version}.zip for #{new_resource.name}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
-		cwd @current_resource.target
-		not_if { ::File.exists? ("#{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}/conf")}
-		command "unzip #{@current_resource.local_dir}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}-bin.zip"
-		creates "#{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}/repository"
+		cwd new_resource.target
+		not_if { ::File.exists? ("#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/conf")}
+		command "unzip #{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip"
+		creates "#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/repository"
 		timeout 0
 	end
 
-	execute "Setting permission for #{@current_resource.name}" do
+	execute "Setting permission for #{new_resource.name}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
-		cwd @current_resource.target
-		command "chown -R #{@current_resource.owner}:#{@current_resource.owner} #{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version} ;
-				 chmod -R 755 #{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}"
+		cwd new_resource.target
+		command "chown -R #{new_resource.owner}:#{new_resource.owner} #{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version} ;
+				 chmod -R 755 #{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}"
 		timeout 0
 	end
 
-	remote_directory "/#{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}/lib" do
+	remote_directory "/#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/lib" do
 		source node[:mb][:type]
 	end
 
