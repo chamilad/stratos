@@ -1,4 +1,4 @@
-include_attribute "base"
+include_attribute "base::base"
 default[:tomcat][:target] = '/mnt'
 default[:tomcat][:owner] = 'root'
 default[:tomcat][:group] = 'root'
