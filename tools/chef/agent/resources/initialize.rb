@@ -1,4 +1,4 @@
-action :init
+actions :init
 
 attribute :name, :name_attribute => true, :kind_of => String
 attribute :repo, :kind_of => String

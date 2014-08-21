@@ -1,4 +1,4 @@
-action :push
+actions :push
 
 attribute :name, :name_attribute => true
 attribute :target, :kind_of => String

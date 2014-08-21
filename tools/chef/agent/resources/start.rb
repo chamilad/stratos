@@ -1,4 +1,4 @@
-action :start
+actions :start
 
 attribute :name, :name_attribute => true, :kind_of => String
 attribute :owner, :kind_of => String
