@@ -10,7 +10,7 @@
 action :init do
 	directory "#{new_resource.local_dir}"
 
-	cookbook_file "#{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip"
+	cookbook_file "#{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}.zip"
 
 	execute "Creating target for #{new_resource.name}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin','/sbin','/bin']
