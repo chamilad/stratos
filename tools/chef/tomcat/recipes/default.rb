@@ -5,6 +5,8 @@ package_name="apache-tomcat-#{node[:tomcat][:version]}"
 service_code="apache-tomcat"
 tomcat_home="#{node[:tomcat][:target]}/#{package_name}"
 
+directory "#{node[:tomcat][:target]}/packs"
+
 cookbook_file "/#{node[:tomcat][:target]}/packs/apache-tomcat-#{node[:tomcat][:version]}.tar.gz" do
  	source "apache-tomcat-#{node[:tomcat][:version]}.tar.gz"
  end

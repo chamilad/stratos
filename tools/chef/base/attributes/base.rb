@@ -21,7 +21,7 @@ default[:lb][:member_type_ip]          ='private'
 default[:lb][:http_port]               = '80'
 default[:lb][:https_port]              = '443'
 
-default[:tomcat][:version]             = '7.0.52'
+default[:tomcat][:version]             = '7.0.54'
 
 default[:agent][:enable_log_publisher] = 'false'
 
