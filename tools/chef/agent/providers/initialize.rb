@@ -35,7 +35,7 @@ action :init do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
 		cwd new_resource.target
 		not_if { ::File.exists? ("#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/conf")}
-		command "unzip #{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip"
+		command "unzip #{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}.zip -d apache-stratos-#{new_resource.service}-#{new_resource.version}"
 		creates "#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/repository"
 		#timeout 0
 	end

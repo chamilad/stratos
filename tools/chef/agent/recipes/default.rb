@@ -11,12 +11,12 @@ service_templates=%w('bin/stratos.sh'
                     'extensions/instance-started.sh'
                     'extensions/start-servers.sh')
 agent_initialize "#{deployment_code}" do
-	repo node[:base][:package_repo]
-	version carbon_version
-	service service_code
-	local_dir node[:base][:local_package_dir]
-	target node[:agent][:target]
-	owner node[:agent][:owner]
+	repo 		node[:base][:package_repo]
+	version 	carbon_version
+	service 	service_code
+	local_dir 	node[:base][:local_package_dir]
+	target 		node[:agent][:target]
+	owner 		node[:agent][:owner]
 end
 
 execute "Copy launch-params to carbon_home : #{carbon_home}" do
