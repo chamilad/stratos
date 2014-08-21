@@ -10,7 +10,7 @@ cookbook_file "/#{node[:tomcat][:target]}/packs/apache-tomcat-#{node[:tomcat][:v
  end
 
 execute 'extract tomcat package' do
-	path 	"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	path 	['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
 	cwd 	target
 	not_if 	{ ::File.exists?("#{node[:tomcat][:target]}/#{tomcat_home}/conf")}
 	command	"tar xvfz #{node[:tomcat][:target]}/packs/#{package_name}.tar.gz"
@@ -27,13 +27,13 @@ end
 cookbook_file "/mnt/tomcat"
 
 execute "Set tomcat home permission" do
-	path 	"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	path 	['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
     cwd 	target
     command "chown -R #{node[:tomcat][:owner]} #{tomcat_home}; chmod -R 755 #{tomcat_home}"
 end
 
 execute "Start tomcat" do
-	path	"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	path	['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
 	cwd 	"#{tomcat_home}/bin"
 	environment	({'JAVA_HOME' => '/opt/java'})
 	command	"bash startup.sh"

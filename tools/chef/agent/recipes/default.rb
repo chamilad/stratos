@@ -20,11 +20,11 @@ agent_initialize "#{deployment_code}" do
 end
 
 execute "Copy launch-params to carbon_home : #{carbon_home}" do
-	path '/bin/'
+	path ['/bin/']
 	command "mkdir -p #{carbon_home}/payload; cp /tmp/payload/launch-params #{carbon_home}/payload/launch-params"
 end
 
-agen_push_templates service_templates do
+agent_push_templates service_templates do
 	target carbon_home
 end
 

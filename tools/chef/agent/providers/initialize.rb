@@ -13,13 +13,13 @@ action :init do
 	cookbook_file "#{@current_resource.local_dir}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}-bin.zip"
 
 	execute "Creating target for #{@current_resource.name}" do
-		path '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin','/sbin','/bin']
 		command "mkdir -p #{@current_resource.target}"
 		action :run
 	end
 
 	execute "Creating local package repo for #{@current_resource.name}" do
-		path '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/java/bin/'
+		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin', '/opt/java/bin/']
 		command "mkdir -p #{@current_resource.local_dir}"
 		not_if { ::File.exists?(@current_resource.local_dir) }
 	end
@@ -32,7 +32,7 @@ action :init do
 	# end
 
 	execute "Extracting stratos #{@current_resource.service}-#{@current_resource.version}.zip for #{@current_resource.name}" do
-		path '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
 		cwd @current_resource.target
 		not_if { ::File.exists? ("#{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}/conf")}
 		command "unzip #{@current_resource.local_dir}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}-bin.zip"
@@ -41,7 +41,7 @@ action :init do
 	end
 
 	execute "Setting permission for #{@current_resource.name}" do
-		path '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
 		cwd @current_resource.target
 		command "chown -R #{@current_resource.owner}:#{@current_resource.owner} #{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version} ;
 				 chmod -R 755 #{@current_resource.target}/apache-stratos-#{@current_resource.service}-#{@current_resource.version}"

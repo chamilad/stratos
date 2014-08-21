@@ -10,7 +10,7 @@ cookbook_file "#{package}" do
 end
 
 execute 'Install Java' do
-	path '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+	path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
 	cwd '/opt'
 	command "/bin/tar xzf #{package}"
 	not_if { ::File.exists?(java_home)}

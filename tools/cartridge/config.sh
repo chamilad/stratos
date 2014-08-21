@@ -70,6 +70,7 @@ run_chef_client() {
     ${ECHO} "Configuring chef-client"
 
     CHEF_CLIENT=`which chef-client`
+    #TODO: copy pem files
     #validater key should be copied by now
     VALIDATER_KEY="/etc/chef/chef-validator.pem"
 
