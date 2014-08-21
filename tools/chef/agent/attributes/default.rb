@@ -1,4 +1,4 @@
-include_attribute "base"
+include_attribute "base::base"
 
 default[:agent][:version]='4.0.0-SNAPSHOT'
 default[:agent][:owner]='root'
