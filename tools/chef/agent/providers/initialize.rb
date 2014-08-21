@@ -37,7 +37,7 @@ action :init do
 		not_if { ::File.exists? ("#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/conf")}
 		command "unzip #{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}-bin.zip"
 		creates "#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/repository"
-		timeout 0
+		#timeout 0
 	end
 
 	execute "Setting permission for #{new_resource.name}" do
@@ -45,7 +45,7 @@ action :init do
 		cwd new_resource.target
 		command "chown -R #{new_resource.owner}:#{new_resource.owner} #{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version} ;
 				 chmod -R 755 #{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}"
-		timeout 0
+		#timeout 0
 	end
 
 	remote_directory "/#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/lib" do

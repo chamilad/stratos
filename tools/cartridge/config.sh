@@ -147,6 +147,11 @@ if [[ $answer = y ]] ; then
     	    ${CURL} -L https://www.opscode.com/chef/install.sh | bash
     	    ${MKDIR} /etc/chef
     	    cd /etc/chef/
+        else
+            #clean possible old runs
+            ${RM} -rf /etc/chef/client.pem
+            ${RM} -rf /etc/chef/client.rb
+            ${RM} -rf /etc/chef/run_list.json
         fi
 
 	    run_chef_client
