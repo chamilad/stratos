@@ -1,0 +1,1 @@
+{"name":"default","description":"","json_class":"Chef::Role","default_attributes":{},"override_attributes":{},"chef_type":"role","run_list":["recipe[ohai]","recipe[base]","recipe[java]","recipe[agent]"],"env_run_lists":{}}

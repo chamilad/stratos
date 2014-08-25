@@ -1,0 +1,1 @@
+{"name":"lb","description":"","json_class":"Chef::Role","default_attributes":{"lb":{"maintenance_mode":"norestart"}},"override_attributes":{},"chef_type":"role","run_list":["recipe[ohai]","recipe[base]","recipe[java]","recipe[lb]","recipe[agent]"],"env_run_lists":{}}

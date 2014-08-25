@@ -1,0 +1,19 @@
+{
+	"name":"php",
+	"description":"",
+	"json_class":"Chef::Role",
+	"default_attributes":{
+		"agent":{
+			"syslog": "/var/log/apache2/error.log",
+			"docroot":"/var/www/www",
+			"samlalias":"/var/www/",
+			"type":	"php"
+		}
+	},
+	"override_attributes":{
+	},
+	"chef_type":"role",
+	"run_list":
+		["recipe[ohai]", "recipe[base]", "recipe[java]", "recipe[php]", "recipe[agent]"],
+	"env_run_lists":{}
+}

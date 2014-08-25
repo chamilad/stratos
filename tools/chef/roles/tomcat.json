@@ -1,14 +1,14 @@
 {
-  "name": "tomcat",
-  "description": "Role to be applied for a Tomcat cartridge in Apache Stratos",
-  "default_attributes": {
-    "docroot": "/mnt/apache-tomcat-#{tomcat_version}/webapps/",
-    "samlalias": "/mnt/apache-tomcat-#{tomcat_version}/webapps/"
-  },
-  "run_list": [
-    "base",
-    "java",
-    "tomcat",
-    "base"
-  ]
+	"name":"tomcat",
+	"description":"",
+	"json_class":"Chef::Role",
+	"default_attributes":{
+		"agent":{
+		}
+	},
+	"override_attributes":{},
+	"chef_type":"role",
+	"run_list":
+		["recipe[ohai]", "recipe[base]", "recipe[java]", "recipe[tomcat]", "recipe[agent]"],
+	"env_run_lists":{}
 }
