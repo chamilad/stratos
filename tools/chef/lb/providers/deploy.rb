@@ -13,10 +13,10 @@ action :deploy do
 		source "configs"
 	end
 
-	remote_directory "/tmp//#{new_resource.deployment_code}" do
-		cookbook new_resource.service
-		source "patches"
-	end
+	# remote_directory "/tmp//#{new_resource.deployment_code}" do
+	# 	cookbook new_resource.service
+	# 	source "patches"
+	# end
 
 	execute "Copy #{new_resource.deployment_code} modules to carbon home" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin', '/opt/java/bin/']

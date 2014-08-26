@@ -11,7 +11,6 @@ action :push do
 			source "#{template_name}.erb"
 			mode '0755'
 			variables :carbon_home => new_resource.target
-			mode '0755'
 		end
 	end
 end

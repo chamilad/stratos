@@ -19,6 +19,8 @@ service_templates = %w[ conf/axis2/axis2.xml
 lb_clean deployment_code do
 	mode 	node[:lb][:maintenance_mode]
 	target 	carbon_home
+	service_code	service_code
+	version 		carbon_version
 end
 
 lb_initialize deployment_code do
@@ -42,6 +44,8 @@ end
 lb_push_templates service_templates do
 	target 		carbon_home
 	directory 	deployment_code
+	owner		node[:lb][:owner]
+	group 		node[:lb][:group]
 end
 
 lb_start deployment_code do
