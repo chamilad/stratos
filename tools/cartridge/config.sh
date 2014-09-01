@@ -111,7 +111,7 @@ if [[ $answer = y ]] ; then
         SERVICE_NAME=default
 	fi
 
-	read -p "Enter your configuration automation management choice. Currently Chef anf Puppet are supported. Use \"chef\" for Chef and \"puppet\" for Puppet. Default is Puppet. : " CONFIG_AUTO_FLAG
+	read -p "Enter your configuration automation management choice. Currently Chef and Puppet are supported. Use \"chef\" for Chef and \"puppet\" for Puppet. Default is Puppet. : " CONFIG_AUTO_FLAG
 	CONFIG_AUTO_FLAG=${CONFIG_AUTO_FLAG:-puppet}
 
 	if [[ ${CONFIG_AUTO_FLAG} -eq "chef" ]]; then
