@@ -31,7 +31,7 @@ public class CartridgeConstants {
 	public static final String NOT_READY = "NOT-READY";
 	public static final String SUBSCRIBED = "SUBSCRIBED";
     public static final String UNSUBSCRIBED = "UNSUBSCRIBED";
-    public static final String CONFIG_AUTO_FLAG = "CONFIG_AUTO_FLAG";
+    public static final String CONFIG_AUTO_FLAG = "config.auto.flag";
     public static final String PUPPET_IP = "puppet.ip";
     public static final String PUPPET_HOSTNAME = "puppet.hostname";
     public static final String PUPPET_ENVIRONMENT = "puppet.environment";
