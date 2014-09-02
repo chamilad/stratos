@@ -35,22 +35,13 @@ SLEEP=`which sleep`
 TR=`which tr`
 HEAD=`which head`
 WGET=`which wget`
-PUPPETD=`which puppet`
-AGENT="agent"
-PUPPETAGENT="${PUPPETD} ${AGENT}"
 
-COMMAND="${PUPPETAGENT} -vt"
 IP=`${IFCONFIG} eth0 | ${GREP} -e "inet addr" | ${AWK} '{print $2}' | ${CUT} -d ':' -f 2`
 LOG=/tmp/puppet-init.log
 
 HOSTSFILE=/etc/hosts
 HOSTNAMEFILE=/etc/hostname
 PUPPETCONF=/etc/puppet/puppet.conf
-
-read_master() {
-	${COMMAND}
-}
-
 
 is_public_ip_assigned() {
 
@@ -114,12 +105,12 @@ if [ ! -d /tmp/payload ]; then
 	${ECHO} -e "\nNode Id ${NODEID}\n"
 	${ECHO} -e "\nDomain ${DOMAIN}\n"
 	sed -i "s/server=.*/server=${PUPPET_HOSTNAME}/g"  ${PUPPETCONF}
-	/etc/init.d/puppet restart    
+	/etc/init.d/puppet restart
 	ARGS=("-n${NODEID}" "-d${DOMAIN}" "-s${PUPPET_IP}")
 	HOST="${NODEID}.${DOMAIN}"
 	${HOSTNAME} ${HOST}
 	${ECHO} "${HOST}" > ${HOSTNAMEFILE}
-	${ECHO} "${PUPPET_IP}  ${PUPPET_HOSTNAME}" >> ${HOSTSFILE} 
+	${ECHO} "${PUPPET_IP}  ${PUPPET_HOSTNAME}" >> ${HOSTSFILE}
 	${ECHO} "127.0.0.1 ${HOST}" >> ${HOSTSFILE}
 	/etc/init.d/hostname start
 
