@@ -100,7 +100,7 @@ public class BasicPayloadData implements Serializable {
         else {
             payloadBuilder.append("CHEF_IP=" + System.getProperty(CartridgeConstants.CHEF_IP));
             payloadBuilder.append(",");
-            payloadBuilder.append("CHEF_IP=" + System.getProperty(CartridgeConstants.CHEF_HOSTNAME));
+            payloadBuilder.append("CHEF_HOSTNAME=" + System.getProperty(CartridgeConstants.CHEF_HOSTNAME));
             payloadBuilder.append(",");
         }
 

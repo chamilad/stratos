@@ -15,7 +15,7 @@ default[:truststore][:password]        = 'wso2carbon'
 #default[:java][:distribution]          ='jdk-7u51-linux-x64.tar.gz'
 default[:java][:distribution]          ='jdk-7u7-linux-x64.tar.gz'
 #default[:java][:name]                  ='jdk1.7.0_51'
-default[:java][:name]                  ='jdk1.7.0_7'
+default[:java][:name]                  ='jdk1.7.0_07'
 
 default[:lb][:member_type_ip]          ='private'
 default[:lb][:http_port]               = '80'

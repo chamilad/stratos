@@ -74,6 +74,12 @@ run_chef_client() {
     #validater key should be copied by now
     VALIDATER_KEY="/etc/chef/chef-validator.pem"
 
+    # Remove old client.pem file if it exists
+    if [ -f /etc/chef/client.pem ]; then
+      ${ECHO} "Removing old client certificates"
+      ${RM} -rf /etc/chef/client.pem
+    fi
+
     chmod 600 /etc/chef/*.pem
 
     ${ECHO} "Registering chef-client with server"
@@ -85,6 +91,7 @@ run_chef_client() {
     log_level       :info
     log_location    STDOUT
     chef_server_url "https://${CHEF_HOSTNAME}"
+    validation_key  "${VALIDATER_KEY}"
     no_lazy_load true
 EOH
 
@@ -107,14 +114,14 @@ if [[ $answer = y ]] ; then
 
 	read -p "Please provide stratos service-name:" SERVICE_NAME
 	if [[ -z $SERVICE_NAME ]]; then
-	echo "service is empty!. Base image will be created."
-        SERVICE_NAME=default
+	    echo "service is empty!. Base image will be created."
+        SERVICE_NAME="default"
 	fi
 
 	read -p "Enter your configuration automation management choice. Currently Chef and Puppet are supported. Use \"chef\" for Chef and \"puppet\" for Puppet. Default is Puppet. : " CONFIG_AUTO_FLAG
 	CONFIG_AUTO_FLAG=${CONFIG_AUTO_FLAG:-puppet}
 
-	if [[ ${CONFIG_AUTO_FLAG} -eq "chef" ]]; then
+	if [[ ${CONFIG_AUTO_FLAG} = "chef" ]]; then
         read -p "Please provide Chef server IP:" CHEF_IP
         if ! valid_ip ${CHEF_IP} ; then
             echo "invalid IP address format!"
@@ -149,17 +156,18 @@ if [[ $answer = y ]] ; then
     	    cd /etc/chef/
         else
             #clean possible old runs
+            ${ECHO} -e "Cleaning /etc/chef"
             ${RM} -rf /etc/chef/client.pem
             ${RM} -rf /etc/chef/client.rb
             ${RM} -rf /etc/chef/run_list.json
         fi
 
 	    run_chef_client
-	elif [[ ${CONFIG_AUTO_FLAG} -eq "puppet" ]]; then
+	elif [[ ${CONFIG_AUTO_FLAG} = "puppet" ]]; then
         read -p "Please provide puppet master IP:" PUPPET_IP
         if ! valid_ip $PUPPET_IP ; then
-        echo "invalid IP address format!"
-        exit -1
+            echo "invalid IP address format!"
+            exit -1
         fi
 
         read -p "Please provide puppet master hostname [puppet.stratos.org]:" DOMAIN
@@ -185,7 +193,7 @@ if [[ $answer = y ]] ; then
 
     #finally
     ${RM} /mnt/apache-stratos-cartridge-agent-4.0.0-SNAPSHOT/wso2carbon.lck
-    ${GREP} -q '/root/bin/init.sh > /tmp/puppet_log' /etc/rc.local || ${SED} -i 's/exit 0$/\/root\/bin\/init.sh \> \/tmp\/puppet_log\nexit 0/' /etc/rc.local
+    ${GREP} -q '/root/bin/init.sh > /tmp/configuration_log' /etc/rc.local || ${SED} -i 's/exit 0$/\/root\/bin\/init.sh \> \/tmp\/puppet_log\nexit 0/' /etc/rc.local
     ${RM} -rf /tmp/*
     ${RM} -rf /var/lib/puppet/ssl/*
     ${MV} -f /etc/hosts.tmp ${HOSTSFILE}
