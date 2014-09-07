@@ -27,10 +27,10 @@ log=/var/log/apache-stratos/cartridge-agent-extensions.log
 echo "Instance started" | tee -a $log
 
 
-<%- if @node[:agent][:type] == 'mysql' -%>
-<%= render'extensions/addons/_mysql.erb' -%>
+<%- if node[:agent][:type] == 'mysql' -%>
+<%= render 'extensions/addons/_mysql.erb' -%>
 <%- end -%>
 
-<%- if @node[:agent][:type] == 'ruby' -%>
+<%- if node[:agent][:type] == 'ruby' -%>
 <%= render 'extensions/addons/_ruby.erb' -%>
 <%- end -%>

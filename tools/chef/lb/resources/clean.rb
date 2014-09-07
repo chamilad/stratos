@@ -6,7 +6,7 @@ attribute :target, :kind_of => String
 attribute :service_code, :kind_of => String
 attribute :version, :kind_of => String
 
-def initialize(*args) do
+def initialize(*args)
 	super
 	@action = :clean
 end

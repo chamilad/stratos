@@ -8,17 +8,17 @@
 #
 
 deployment_code = 'lb'
-carbon_version = node[:lb][:version]
-service_code = 'load-balancer'
-carbon_home = "#{@node[:lb][:target]}/apache-stratos-#{service_code}-#{carbon_version}"
+carbon_version  = node[:lb][:version]
+service_code    = 'load-balancer'
+carbon_home     = "#{node[:lb][:target]}/apache-stratos-#{service_code}-#{carbon_version}"
 
-service_templates = %w[ conf/axis2/axis2.xml
-					    conf/loadbalancer.conf
-					    conf/templates/jndi.properties.template]
+service_templates=%w(conf/axis2/axis2.xml
+					conf/loadbalancer.conf
+					conf/templates/jndi.properties.template)
 
 lb_clean deployment_code do
-	mode 	node[:lb][:maintenance_mode]
-	target 	carbon_home
+	mode 			node[:lb][:maintenance_mode]
+	target 			carbon_home
 	service_code	service_code
 	version 		carbon_version
 end

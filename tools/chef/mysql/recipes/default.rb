@@ -70,9 +70,9 @@ template "/etc/apache2/sites-enabled/000-default" do
 end
 
 #set default mysql password root
-execute "mysql-root-password-set" do
-  command "mysqladmin -u root password root"
-end
+# execute "mysql-root-password-set" do
+#   command "mysqladmin -u root password root"
+# end
 
 #restart mysql
 execute "mysql-server-restart" do

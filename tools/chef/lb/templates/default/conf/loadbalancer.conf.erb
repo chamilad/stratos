@@ -42,16 +42,16 @@ loadbalancer {
 
     # Message broker endpoint
     # Provide message broker ip address and port if topology-event-listener or multi-tenancy is set to true.
-    mb-ip: <%= @node[:mb][:ip] %>;
-    mb-port: <%= @node[:mb][:port] %>;
+    mb-ip: <%= node[:mb][:ip] %>;
+    mb-port: <%= node[:mb][:port] %>;
 
     # Topology service filter
     # Provide service names in a comma separated list to filter incoming topology events if
     # topology_event_listener_enabled is set to true. This functionality could be used for hosting
     # dedicated load balancers for services.
     # topology-service-filter: service-name=service-name1,service-name2;
-    <% if @node[:stratos_lb_category] == 'service.aware.load.balancer' %>
-      topology-service-filter: service-name=<%=@node[:stratos_load_balanced_service_type]%>;
+    <% if @stratos_lb_category == 'service.aware.load.balancer' %>
+      topology-service-filter: service-name=<%= ENV %>;
     <% end %>
 
     # Topology cluster filter
@@ -64,8 +64,8 @@ loadbalancer {
     # Provide load balancer cluster ids in a comma separated list to filter incoming topology events if
     # topology_event_listener_enabled is set to true. This functionality could be used for allowing members
     # to join a given load balancer cluster.
-    <% if @node[:stratos_cluster_id] and @node[:stratos_cluster_id] != 'null' %>
-    topology-member-filter: lb-cluster-id=<%= @node[:stratos_cluster_id] %>;
+    <% if @stratos_cluster_id and @stratos_cluster_id != 'null' %>
+    topology-member-filter: lb-cluster-id=<%= @stratos_cluster_id %>;
     <% end %>
 
 
@@ -74,20 +74,20 @@ loadbalancer {
 
     # Complex event processor endpoint
     # Provide CEP ip address and port if cep-stats-publisher is set to true.
-    cep-ip: <%= @node[:cep][:ip] %>;
-    cep-port: <%= @node[:cep][:port] %>;
+    cep-ip: <%= node[:cep][:ip] %>;
+    cep-port: <%= node[:cep][:port] %>;
 
     # Network partition id
     # Provide the network partition id if cep-stats-publisher is set to true.
-    <% if @node[:stratos_network_partition_id]  and @node[:stratos_network_partition_id] != 'null' %>
-    network-partition-id: <%= @node[:stratos_network_partition_id] %>;
+    <% if @stratos_network_partition_id  and @stratos_network_partition_id != 'null' %>
+    network-partition-id: <%= @stratos_network_partition_id %>;
     <% end %>
 
    # Topology member ip address type
    # Provide this configuration if topology-event-listener is set to true. If this property is set to 'private'
    # load balancer will delegate requests to member's private IP address. If it is set to 'public' requests will
    # be delegated to member's public IP address.
-   topology-member-ip-type: <%= @node[:lb][:member_type_ip] %>;
+   topology-member-ip-type: <%= node[:lb][:member_type_ip] %>;
 
 
 

@@ -1,1 +1,1 @@
-{"name":"mysql","description":"","json_class":"Chef::Role","default_attributes":{"agent":{"type":"mysql"}},"override_attributes":{},"chef_type":"role","run_list":["recipe[ohai]","recipe[base]","recipe[java]","recipe[mysql]","recipe[agent]"],"env_run_lists":{}}
+{"name":"mysql","description":"","json_class":"Chef::Role","default_attributes":{"agent":{"type":"mysql"}},"override_attributes":{},"chef_type":"role","run_list":["recipe[base]","recipe[java]","recipe[mysql]","recipe[agent]"],"env_run_lists":{}}

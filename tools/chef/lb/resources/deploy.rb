@@ -7,7 +7,7 @@ attribute :owner, :kind_of => String
 attribute :group, :kind_of => String
 attribute :target, :kind_of => String
 
-def initialize(*args) do
+def initialize(*args)
 	super
 	@action = :deploy
 end

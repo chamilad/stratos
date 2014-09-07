@@ -24,11 +24,11 @@ echo "Starting cartridge agent..."
 script_path="$( cd -P "$( dirname "$SOURCE" )" && pwd )/`dirname $0`"
 lib_path=${script_path}/../lib/
 class_path=`echo ${lib_path}/*.jar | tr ' ' ':'`
-properties="-Dmb.ip=<%= @node[:mb][:ip] %>
-            -Dmb.port=<%= @node[:mb][:port] %>
+properties="-Dmb.ip=<%= node[:mb][:ip] %>
+            -Dmb.port=<%= node[:mb][:port] %>
             -Dlisten.address=localhost
-            -Dthrift.receiver.ip=<%= @node[:cep][:ip] %>
-            -Dthrift.receiver.port=<%= @node[:cep][:port] %>
+            -Dthrift.receiver.ip=<%= node[:cep][:ip] %>
+            -Dthrift.receiver.port=<%= node[:cep][:port] %>
             -Djndi.properties.template.file.path=<%= @carbon_home %>/conf/templates/jndi.properties.template
             -Djndi.properties.dir=<%= @carbon_home %>/conf
             -Dlog4j.properties.file.path=<%= @carbon_home %>/conf/log4j.properties
@@ -36,16 +36,16 @@ properties="-Dmb.ip=<%= @node[:mb][:ip] %>
             -Dextensions.dir=${script_path}/../extensions
             -Dcep.stats.publisher.enabled=true
             -Djavax.net.ssl.trustStore=<%= @carbon_home %>/security/client-truststore.jks
-            -Djavax.net.ssl.trustStorePassword=<%= @node[:truststore][:password]%>
+            -Djavax.net.ssl.trustStorePassword=<%= node[:truststore][:password]%>
 	    -Denable.artifact.update=true
 	    -Dartifact.update.interval=15
-	    -Denable.data.publisher=<%= @node[:agent][:enable_log_publisher] %>
-            -Dmonitoring.server.ip=<%= @node[:bam][:ip] %>
-            -Dmonitoring.server.port=<%= @node[:bam][:port] %>
-            -Dmonitoring.server.secure.port=<%= @node[:bam][:secure_port] %>
-            -Dmonitoring.server.admin.username=<%= @node[:bam][:username] %>
-            -Dmonitoring.server.admin.password=<%= @node[:bam][:password] %>
-	    -DAPP_PATH=<%= @node[:agent][:docroot] %>"
+	    -Denable.data.publisher=<%= node[:agent][:enable_log_publisher] %>
+            -Dmonitoring.server.ip=<%= node[:bam][:ip] %>
+            -Dmonitoring.server.port=<%= node[:bam][:port] %>
+            -Dmonitoring.server.secure.port=<%= node[:bam][:secure_port] %>
+            -Dmonitoring.server.admin.username=<%= node[:bam][:username] %>
+            -Dmonitoring.server.admin.password=<%= node[:bam][:password] %>
+	    -DAPP_PATH=<%= node[:agent][:docroot] %>"
 
 # Uncomment below line to enable remote debugging
 #debug="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"

@@ -26,6 +26,6 @@
 log=/var/log/apache-stratos/cartridge-agent-extensions.log
 echo "Starting servers" | tee -a $log
 
-<%- if @node[:agent][:type] == 'nodejs' -%>
+<%- if node[:agent][:type] == 'nodejs' -%>
 <%= render 'extensions/addons/_nodejs.erb' -%>
 <%- end -%>

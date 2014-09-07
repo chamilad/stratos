@@ -8,14 +8,20 @@
 # attribute :target, :kind_of => String
 
 action :deploy do
-	remote_directory "/tmp//#{new_resource.deployment_code}" do
+	remote_directory "/tmp/#{new_resource.deployment_code}" do
 		cookbook new_resource.service
 		source "configs"
 	end
 
-	# remote_directory "/tmp//#{new_resource.deployment_code}" do
+	# remote_directory "/tmp/tmp_patches" do
 	# 	cookbook new_resource.service
 	# 	source "patches"
+	# end
+
+	# execute "Copy patches if any exists" do
+	# 	only_if "patches exists"
+	# 	path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin', '/opt/java/bin/']
+	# 	command "cp -r /tmp/temp_patches/* /tmp/#{new_resource.deployment_code}/"
 	# end
 
 	execute "Copy #{new_resource.deployment_code} modules to carbon home" do

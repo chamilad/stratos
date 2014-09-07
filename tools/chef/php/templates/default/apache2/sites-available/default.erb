@@ -23,8 +23,8 @@
 <VirtualHost *:80>
 	ServerAdmin webmaster@localhost
 
-	DocumentRoot <%= @node[:agent][:docroot] %>
-	Alias /simplesaml <%= @node[:agent][:samlalias] %>
+	DocumentRoot <%= node[:agent][:docroot] %>
+	Alias /simplesaml <%= node[:agent][:samlalias] %>
 	<Directory />
 		Options FollowSymLinks
 		AllowOverride All

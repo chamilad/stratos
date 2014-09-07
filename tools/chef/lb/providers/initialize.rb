@@ -8,7 +8,7 @@
 # attribute :owner, :kind_of => String
 
 action :init do
-	cookbook_file "/#{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}.zip"
+	cookbook_file "#{new_resource.local_dir}/apache-stratos-#{new_resource.service}-#{new_resource.version}.zip"
 
 	execute "Creating target for #{new_resource.deployment_code}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']
@@ -32,7 +32,6 @@ action :init do
 	# 	command
 	# end
 
-
 	execute "Extracting apache-stratos-#{new_resource.service}-#{new_resource.version}.zip for #{new_resource.deployment_code}" do
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin', '/opt/java/bin/']
 		cwd new_resource.target
@@ -48,7 +47,7 @@ action :init do
                 chmod -R 755 #{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}"
 	end
 
-	remote_directory "/#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/repository/components/lib" do
+	remote_directory "#{new_resource.target}/apache-stratos-#{new_resource.service}-#{new_resource.version}/repository/components/lib" do
 		source node[:mb][:type]
 	end
 end

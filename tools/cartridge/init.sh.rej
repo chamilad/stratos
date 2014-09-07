@@ -1,0 +1,18 @@
+***************
+*** 173,178 ****
+  
+        # Assigning Chef server domain name for consistansy
+        DOMAIN="${CHEF_HOSTNAME}"
+  	fi
+  
+  	NODEID="${RANDOMNUMBER}.${DEPLOYMENT}.${SERVICE_NAME}"
+--- 188,196 ----
+  
+        # Assigning Chef server domain name for consistansy
+        DOMAIN="${CHEF_HOSTNAME}"
++ 
++       #populate env variables from payload
++       export_payload_to_env
+  	fi
+  
+  	NODEID="${RANDOMNUMBER}.${DEPLOYMENT}.${SERVICE_NAME}"

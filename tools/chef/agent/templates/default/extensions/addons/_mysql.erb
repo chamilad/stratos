@@ -17,16 +17,14 @@
 
 export PATH='/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin'
 
-PASSWD=<%= @node[:stratos_mysql_password] %>
-
 /etc/init.d/mysql start
 
 # Set mysql password
-mysqladmin -uroot password "$PASSWD"
+mysqladmin -uroot password "$STRATOS_MYSQL_PASSWORD"
 
 # Remove other users
-mysql -uroot -p"$PASSWD" -Bse "DELETE from mysql.user WHERE password=''"
+mysql -uroot -p"$STRATOS_MYSQL_PASSWORD" -Bse "DELETE from mysql.user WHERE password=''"
 
 # Set root user with remote access
-mysql -uroot -p"$PASSWD" -Bse "CREATE USER 'root'@'%' IDENTIFIED BY '${PASSWD}'"
+mysql -uroot -p"$STRATOS_MYSQL_PASSWORD" -Bse "CREATE USER 'root'@'%' IDENTIFIED BY '${STRATOS_MYSQL_PASSWORD}'"
 

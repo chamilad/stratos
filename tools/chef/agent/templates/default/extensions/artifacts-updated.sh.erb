@@ -28,6 +28,6 @@ log=/var/log/apache-stratos/cartridge-agent-extensions.log
 echo "Artifacts updated" | tee -a $log
 
 
-<%- if @node[:agent][:type] == 'php' -%>
+<%- if node[:agent][:type] == 'php' -%>
 <%= render 'extensions/addons/_php.erb' -%>
 <%- end -%>

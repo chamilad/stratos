@@ -22,8 +22,8 @@ source ~/.bashrc
 source /etc/profile.d/rvm.sh
 rvm use 2.1.0
 
-RUBY_HOME=<%= @node[:stratos_app_path] %>
-GIT_REPO=<%= @node[:stratos_git_repo] %>
+RUBY_HOME=${STRATOS_APP_PATH}
+GIT_REPO=${STRATOS_GIT_REPO}
 
 mkdir -p $RUBY_HOME
 

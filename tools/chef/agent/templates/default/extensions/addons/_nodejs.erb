@@ -16,6 +16,6 @@
 # under the License.
 
 export PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin"
-NODEJS_HOME=<%= @node[:stratos_app_path] %>
+NODEJS_HOME=${STRATOS_APP_PATH}
 npm install express
 node web.js > /dev/null 2&1 &

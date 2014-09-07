@@ -14,6 +14,6 @@
 	},
 	"chef_type":"role",
 	"run_list":
-		["recipe[ohai]", "recipe[base]", "recipe[java]", "recipe[php]", "recipe[agent]"],
+		["recipe[base]", "recipe[java]", "recipe[php]", "recipe[agent]"],
 	"env_run_lists":{}
 }
