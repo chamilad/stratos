@@ -5,7 +5,7 @@
 
 action :push do
 	new_resource.service_templates.each do |template_name|
-		template "#{new_resource.target}/#{template_name}" do
+		template "#{new_resource.target}/repository/#{template_name}" do
 			owner new_resource.owner
 			group new_resource.group
 			source "#{template_name}.erb"

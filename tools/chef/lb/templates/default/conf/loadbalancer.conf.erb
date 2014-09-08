@@ -50,8 +50,8 @@ loadbalancer {
     # topology_event_listener_enabled is set to true. This functionality could be used for hosting
     # dedicated load balancers for services.
     # topology-service-filter: service-name=service-name1,service-name2;
-    <% if @stratos_lb_category == 'service.aware.load.balancer' %>
-      topology-service-filter: service-name=<%= ENV %>;
+    <% if ENV['STRATOS_LB_CATEGORY'] == 'service.aware.load.balancer' %>
+      topology-service-filter: service-name=<%= ENV['STRATOS_LOAD_BALANCED_SERVICE_TYPE'] %>;
     <% end %>
 
     # Topology cluster filter
@@ -64,8 +64,8 @@ loadbalancer {
     # Provide load balancer cluster ids in a comma separated list to filter incoming topology events if
     # topology_event_listener_enabled is set to true. This functionality could be used for allowing members
     # to join a given load balancer cluster.
-    <% if @stratos_cluster_id and @stratos_cluster_id != 'null' %>
-    topology-member-filter: lb-cluster-id=<%= @stratos_cluster_id %>;
+    <% if ENV['STRATOS_CLUSTER_ID'] and ENV['STRATOS_CLUSTER_ID'] != 'null' %>
+    topology-member-filter: lb-cluster-id=<%= ENV['STRATOS_CLUSTER_ID'] %>;
     <% end %>
 
 
@@ -79,8 +79,8 @@ loadbalancer {
 
     # Network partition id
     # Provide the network partition id if cep-stats-publisher is set to true.
-    <% if @stratos_network_partition_id  and @stratos_network_partition_id != 'null' %>
-    network-partition-id: <%= @stratos_network_partition_id %>;
+    <% if ENV['STRATOS_NETWORK_PARTITION_ID']  and ENV['STRATOS_NETWORK_PARTITION_ID'] != 'null' %>
+    network-partition-id: <%= ENV['STRATOS_NETWORK_PARTITION_ID'] %>;
     <% end %>
 
    # Topology member ip address type
