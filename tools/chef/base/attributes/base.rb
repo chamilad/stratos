@@ -32,3 +32,16 @@ default[:bam][:username]               = 'admin'
 default[:bam][:password]               = 'admin'
 
 #include_attribute "stratos_base" included in the recipe
+
+default[:base][:greg_url]                               = 'https://localhost/registry'
+default[:base][:local_package_dir]                      = '/mnt/packs'
+default[:base][:mysql_max_active]                       = '150'
+default[:base][:mysql_max_connections]                  = '100000'
+default[:base][:mysql_max_wait]                         = '360000'
+default[:base][:mysql_port]                             = 'DB_PORT'
+default[:base][:mysql_server]                           = 'DB_HOST'
+default[:base][:package_repo]                           = 'http://10.4.128.7'
+default[:base][:server_ip]                              = node['ipaddress']
+default[:base][:ssl_certificate_file]                   = 'CERT_FILE_PATH'
+default[:base][:ssl_key_file]                           =  'KEY_FILE_PATH'
+

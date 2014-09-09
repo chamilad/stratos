@@ -1,0 +1,68 @@
+        <datasource>
+            <name>WSO2_GOVERNANCE_DB</name>
+            <description>The datasource used for governance MySQL database</description>
+            <jndiConfig>
+                <name>jdbc/<%= node[:appserver][:registry_database] %></name>
+            </jndiConfig>
+            <definition type="RDBMS">
+                <configuration>
+                    <url>jdbc:mysql://<%= node[:base][:mysql_server] %>:<%= node[:base][:mysql_port] %>/<%= node[:appserver][:registry_database] %>?autoReconnect=true</url>
+                    <username><%= node[:appserver][:registry_user] %></username>
+                    <password><%= node[:appserver][:registry_password] %></password>
+                    <driverClassName>com.mysql.jdbc.Driver</driverClassName>
+                    <maxActive><%= node[:base][:mysql_max_active] %></maxActive>
+                    <maxWait><%= node[:base][:mysql_max_wait] %></maxWait>
+                    <minIdle>5</minIdle>
+                    <testOnBorrow>true</testOnBorrow>
+                    <validationQuery>SELECT 1</validationQuery>
+                    <validationInterval>30000</validationInterval>
+                </configuration>
+            </definition>
+        </datasource>
+
+        <datasource>
+            <name>WSO2_USERSTORE_DB</name>
+            <description>The datasource used for userstore MySQL database</description>
+            <jndiConfig>
+                <name>jdbc/<%= node[:appserver][:userstore_database] %></name>
+            </jndiConfig>
+            <definition type="RDBMS">
+                <configuration>
+                    <url>jdbc:mysql://<%= node[:base][:mysql_server] %>:<%= node[:base][:mysql_port] %>/<%= node[:appserver][:userstore_database] %>?autoReconnect=true</url>
+                    <username><%= node[:appserver][:userstore_user] %></username>
+                    <password><%= node[:appserver][:userstore_password] %></password>
+                    <driverClassName>com.mysql.jdbc.Driver</driverClassName>
+                    <maxActive><%= node[:base][:mysql_max_active] %></maxActive>
+                    <maxWait><%= node[:base][:mysql_max_wait] %></maxWait>
+                    <minIdle>5</minIdle>
+                    <testOnBorrow>true</testOnBorrow>
+                    <validationQuery>SELECT 1</validationQuery>
+                    <validationInterval>30000</validationInterval>
+                </configuration>
+            </definition>
+        </datasource>
+
+<!-- CONFIG DBS -->
+
+        <datasource>
+            <name>WSO2_APPSERVER_CONFIG_DB</name>
+            <description>The datasource used for APPSERVER_CONFIG MySQL database</description>
+            <jndiConfig>
+              <name>jdbc/<%= node[:appserver][:config_db] -%></name>
+            </jndiConfig>
+            <definition type="RDBMS">
+                <configuration>
+                  <url>jdbc:mysql://<%= node[:base][:mysql_server] %>:<%= node[:base][:mysql_port] %>/<%= node[:appserver][:config_db] %>?autoReconnect=true</url>
+                    <username><%= node[:appserver][:registry_user] %></username>
+                    <password><%= node[:appserver][:registry_password] %></password>
+                    <driverClassName>com.mysql.jdbc.Driver</driverClassName>
+                    <maxActive><%= node[:base][:mysql_max_active] %></maxActive>
+                    <maxWait><%= node[:base][:mysql_max_wait] %></maxWait>
+                    <minIdle>5</minIdle>
+                    <testOnBorrow>true</testOnBorrow>
+                    <validationQuery>SELECT 1</validationQuery>
+                    <validationInterval>30000</validationInterval>
+                </configuration>
+            </definition>
+        </datasource>
+
