@@ -19,7 +19,7 @@ action :deploy do
 	end
 
 	execute "Copying patches to /tmp/#{new_resource.deployment_code}" do
-		command "cp -rf /tmp/#{new_resource.deployment_code}_patches/* /tmp/#{new_resource.deployment_code}/"
+		command "cp -rf /tmp/#{new_resource.deployment_code}_patches/* /tmp/#{new_resource.deployment_code}/; chown -R #{new_resource.owner}:#{new_resource.owner} #{new_resource.target}/; chmod -R 755 #{new_resource.target}/"
 		path ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin', '/opt/java/bin/']
 	end
 

@@ -3,11 +3,11 @@
 default[:base][:package_repo]          = 'http://10.4.128.7'
 default[:base][:local_package_dir]     = '/mnt/packs'
 
-default[:mb][:ip]                      = '127.0.0.1'
+default[:mb][:ip]                      = 'MB_IP'
 default[:mb][:port]                    = '61616'
 default[:mb][:type]                    = 'activemq' #in wso2 mb case, value should be 'wso2mb'
 
-default[:cep][:ip]                     = '127.0.0.1'
+default[:cep][:ip]                     = 'CEP_IP'
 default[:cep][:port]                   = '7611'
 
 default[:truststore][:password]        = 'wso2carbon'
@@ -25,7 +25,7 @@ default[:tomcat][:version]             = '7.0.54'
 
 default[:agent][:enable_log_publisher] = 'false'
 
-default[:bam][:ip]                     ='127.0.0.1'
+default[:bam][:ip]                     ='BAM_IP'
 default[:bam][:port]                   ='7611'
 default[:bam][:secure_port]            ='7711'
 default[:bam][:username]               = 'admin'
@@ -42,6 +42,4 @@ default[:base][:mysql_port]                             = 'DB_PORT'
 default[:base][:mysql_server]                           = 'DB_HOST'
 default[:base][:package_repo]                           = 'http://10.4.128.7'
 default[:base][:server_ip]                              = node['ipaddress']
-default[:base][:ssl_certificate_file]                   = 'CERT_FILE_PATH'
-default[:base][:ssl_key_file]                           =  'KEY_FILE_PATH'
 

@@ -25,9 +25,9 @@ default[:appserver][:sharedgroup_search_base] ='ou=SharedGroups,dc=wso2,dc=org'
 default[:appserver][:http_proxy_port]         ='80'
 default[:appserver][:https_proxy_port]        = '443'
 
-default[:appserver][:version]                 =undef
-default[:appserver][:sub_cluster_domain]      =undef
-default[:appserver][:members]                 =undef
+default[:appserver][:version]                 =""
+default[:appserver][:sub_cluster_domain]      =""
+default[:appserver][:members]                 =""
 default[:appserver][:offset]                  =0
 default[:appserver][:hazelcast_port]          =4000
 default[:appserver][:config_db]               ='governance'
