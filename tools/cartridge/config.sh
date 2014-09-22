@@ -192,7 +192,7 @@ if [[ $answer = y ]] ; then
     fi
 
     #finally
-    ${RM} /mnt/apache-stratos-cartridge-agent-4.0.0-SNAPSHOT/wso2carbon.lck
+    ${RM} /mnt/apache-stratos-cartridge-agent-4.0.0/wso2carbon.lck
     ${GREP} -q '/root/bin/init.sh > /tmp/configuration_log' /etc/rc.local || ${SED} -i 's/exit 0$/\/root\/bin\/init.sh \> \/tmp\/puppet_log\nexit 0/' /etc/rc.local
     ${RM} -rf /tmp/*
     ${RM} -rf /var/lib/puppet/ssl/*
