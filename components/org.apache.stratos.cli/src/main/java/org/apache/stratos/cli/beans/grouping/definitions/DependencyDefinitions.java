@@ -16,19 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.stratos.messaging.event.topology;
 
-/**
- * This event will be sent to Topology upon activation of application
- */
-public class ApplicationActivatedEvent extends TopologyEvent {
-    private final String appId;
+package org.apache.stratos.cli.beans.grouping.definitions;
 
-    public ApplicationActivatedEvent(String appId) {
-        this.appId = appId;
+import java.util.List;
+
+public class DependencyDefinitions {
+
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	
+	private List<String> startupOrders;
+
+    private String terminationBehaviour;
+
+    public String getTerminationBehaviour() {
+        return terminationBehaviour;
     }
 
-    public String getAppId() {
-        return appId;
+    public void setTerminationBehaviour(String terminationBehaviour) {
+        this.terminationBehaviour = terminationBehaviour;
     }
+
+	public List<String> getStartupOrders() {
+		return startupOrders;
+	}
+
+	public void setStartupOrders(List<String> startupOrders) {
+		this.startupOrders = startupOrders;
+	}
 }

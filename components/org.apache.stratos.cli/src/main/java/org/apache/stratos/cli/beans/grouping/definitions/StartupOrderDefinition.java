@@ -16,28 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.stratos.messaging.event.topology;
 
-import org.apache.stratos.messaging.event.Event;
+package org.apache.stratos.cli.beans.grouping.definitions;
 
-/**
- * Group Activated Event which will be sent to Topology upon group activation
- */
-public class GroupTerminatingEvent extends Event {
-    private String appId;
-    private String groupId;
+public class StartupOrderDefinition {
 
-    public GroupTerminatingEvent(String appId, String groupId) {
-        this.appId = appId;
-        this.groupId = groupId;
+    private String start;
+
+    private String after;
+
+    public String getStart() {
+        return start;
     }
 
-    public String getAppId() {
-        return appId;
+    public void setStart(String start) {
+        this.start = start;
     }
 
-    public String getGroupId() {
-        return groupId;
+    public String getAfter() {
+        return after;
     }
 
+    public void setAfter(String after) {
+        this.after = after;
+    }
 }
