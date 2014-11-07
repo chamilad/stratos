@@ -10,6 +10,7 @@ import org.apache.stratos.messaging.event.applications.*;
 import org.apache.stratos.messaging.event.topology.ApplicationUndeployedEvent;
 import org.apache.stratos.messaging.message.receiver.applications.ApplicationManager;
 import org.apache.stratos.messaging.util.Constants;
+import org.apache.stratos.messaging.util.Util;
 
 import java.util.Set;
 
@@ -61,10 +62,9 @@ public class ApplicationsEventPublisher {
             log.info("Publishing Group in-activate event for [application]: " + appId +
                     " [group]: " + groupId);
         }
-        AppStatusGroupInactivateEvent appStatusGroupInactivateEvent = new
-                AppStatusGroupInactivateEvent(appId, groupId);
+        GroupInactivatedEvent groupInactivateEvent = new GroupInactivatedEvent(appId, groupId);
 
-        publishEvent(appStatusGroupInactivateEvent);
+        publishEvent(groupInactivateEvent);
     }
 
     public static void sendGroupTerminatingEvent(String appId, String groupId) {
@@ -128,7 +128,8 @@ public class ApplicationsEventPublisher {
 
     public static void publishEvent(Event event) {
         //publishing events to application status topic
-        EventPublisher eventPublisher = EventPublisherPool.getPublisher(Constants.APPLICATIONS_TOPIC);
+        String applicationTopic = Util.getMessageTopicName(event);
+        EventPublisher eventPublisher = EventPublisherPool.getPublisher(applicationTopic);
         eventPublisher.publish(event);
     }
 

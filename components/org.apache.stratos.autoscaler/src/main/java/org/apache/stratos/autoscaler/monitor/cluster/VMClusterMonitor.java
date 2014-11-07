@@ -26,7 +26,7 @@ import org.apache.stratos.autoscaler.AutoscalerContext;
 import org.apache.stratos.autoscaler.MemberStatsContext;
 import org.apache.stratos.autoscaler.NetworkPartitionContext;
 import org.apache.stratos.autoscaler.PartitionContext;
-import org.apache.stratos.autoscaler.client.cloud.controller.CloudControllerClient;
+import org.apache.stratos.autoscaler.client.CloudControllerClient;
 import org.apache.stratos.autoscaler.policy.model.DeploymentPolicy;
 import org.apache.stratos.autoscaler.exception.InvalidArgumentException;
 import org.apache.stratos.autoscaler.exception.TerminationException;
@@ -477,6 +477,7 @@ abstract public class VMClusterMonitor extends AbstractClusterMonitor {
                                    + "[member] %s", memberId));
         }
         partitionContext.movePendingMemberToActiveMembers(memberId);
+        StatusChecker.getInstance().onMemberStatusChange(memberActivatedEvent.getClusterId());
     }
 
     @Override

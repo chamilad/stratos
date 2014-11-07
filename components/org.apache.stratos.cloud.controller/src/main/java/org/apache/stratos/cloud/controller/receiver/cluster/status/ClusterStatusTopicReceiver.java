@@ -26,7 +26,7 @@ import org.apache.stratos.messaging.event.cluster.status.*;
 import org.apache.stratos.messaging.listener.cluster.status.*;
 import org.apache.stratos.messaging.message.receiver.cluster.status.ClusterStatusEventReceiver;
 
-public class ClusterStatusTopicReceiver implements Runnable {
+public class ClusterStatusTopicReceiver implements Runnable{
     private static final Log log = LogFactory.getLog(ClusterStatusTopicReceiver.class);
 
     private ClusterStatusEventReceiver statusEventReceiver;
@@ -38,15 +38,10 @@ public class ClusterStatusTopicReceiver implements Runnable {
     }
 
     public void run() {
-        //FIXME this activated before autoscaler deployer activated.
-        try {
-            Thread.sleep(15000);
-        } catch (InterruptedException ignore) {
-        }
         Thread thread = new Thread(statusEventReceiver);
         thread.start();
         if (log.isInfoEnabled()) {
-            log.info("Cloud controller application status thread started");
+            log.info("Cloud controller Cluster status thread started");
         }
 
         // Keep the thread live until terminated
@@ -61,7 +56,6 @@ public class ClusterStatusTopicReceiver implements Runnable {
         }
 
     }
-
     private void addEventListeners() {
         // Listen to topology events that affect clusters
         statusEventReceiver.addEventListener(new ClusterStatusClusterResetEventListener() {
@@ -92,7 +86,7 @@ public class ClusterStatusTopicReceiver implements Runnable {
             }
         });
 
-        statusEventReceiver.addEventListener(new ClusterStatusClusterTerminatingEventListener(){
+        statusEventReceiver.addEventListener(new ClusterStatusClusterTerminatingEventListener() {
             @Override
             protected void onEvent(Event event) {
                 TopologyBuilder.handleClusterTerminatingEvent((ClusterStatusClusterTerminatingEvent) event);
