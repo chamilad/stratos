@@ -24,7 +24,11 @@ import org.apache.stratos.autoscaler.applications.ApplicationHolder;
 import org.apache.stratos.autoscaler.applications.pojo.ApplicationClusterContext;
 import org.apache.stratos.autoscaler.client.CloudControllerClient;
 import org.apache.stratos.autoscaler.context.AutoscalerContext;
+import org.apache.stratos.autoscaler.context.partition.network.GroupLevelNetworkPartitionContext;
+import org.apache.stratos.autoscaler.context.partition.network.NetworkPartitionContext;
 import org.apache.stratos.autoscaler.event.publisher.ClusterStatusEventPublisher;
+import org.apache.stratos.autoscaler.exception.policy.InvalidPolicyException;
+import org.apache.stratos.autoscaler.monitor.Monitor;
 import org.apache.stratos.autoscaler.monitor.component.ApplicationMonitor;
 import org.apache.stratos.autoscaler.monitor.component.GroupMonitor;
 import org.apache.stratos.autoscaler.pojo.policy.PolicyManager;
@@ -35,8 +39,11 @@ import org.apache.stratos.messaging.domain.instance.GroupInstance;
 import org.apache.stratos.messaging.domain.topology.Cluster;
 import org.apache.stratos.messaging.domain.topology.Service;
 import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
+import org.wso2.carbon.base.MultitenantConstants;
+import org.wso2.carbon.context.PrivilegedCarbonContext;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -50,8 +57,8 @@ public class ApplicationBuilder {
             log.debug("Handling complete application event");
         }
 
-        ApplicationHolder.acquireReadLock();
         try {
+            ApplicationHolder.acquireReadLock();
             ApplicationsEventPublisher.sendCompleteApplicationsEvent(applications);
         } finally {
             ApplicationHolder.releaseReadLock();
@@ -81,10 +88,10 @@ public class ApplicationBuilder {
         ApplicationsEventPublisher.sendApplicationCreatedEvent(application);
     }
 
-    public static ApplicationInstance handleApplicationInstanceCreatedEvent(String appId, String instanceId,
+    public static ApplicationInstance handleApplicationInstanceCreatedEvent(String appId,
                                                                             String networkPartitionId) {
         if (log.isDebugEnabled()) {
-            log.debug("Handling application activation event: [application-id] " + appId);
+            log.debug("Handling application instance creation event: [application-id] " + appId);
         }
         ApplicationInstance applicationInstance = null;
         //acquiring write lock to add the required instances
@@ -99,6 +106,7 @@ public class ApplicationBuilder {
                         appId));
                 return null;
             }
+            String instanceId = application.getNextInstanceId(appId);
 
             if (!application.containsInstanceContext(instanceId)) {
                 //setting the status, persist and publish
@@ -120,7 +128,8 @@ public class ApplicationBuilder {
 
     public static void handleApplicationInstanceActivatedEvent(String appId, String instanceId) {
         if (log.isDebugEnabled()) {
-            log.debug("Handling application activation event: [application-id] " + appId);
+            log.debug("Handling application activation event: [application-id] " + appId +
+                    " [instance] " + instanceId);
         }
 
         Applications applications = ApplicationHolder.getApplications();
@@ -133,23 +142,25 @@ public class ApplicationBuilder {
         }
 
         ApplicationStatus status = ApplicationStatus.Active;
-        ApplicationInstance context = application.getInstanceContexts(instanceId);
-        if (context.isStateTransitionValid(status)) {
+        ApplicationInstance applicationInstance = application.getInstanceContexts(instanceId);
+        if (applicationInstance.isStateTransitionValid(status)) {
             //setting the status, persist and publish
             application.setStatus(status, instanceId);
-            updateApplicationMonitor(appId, status, instanceId);
+            updateApplicationMonitor(appId, status, applicationInstance.getNetworkPartitionId(),
+                    instanceId);
             ApplicationHolder.persistApplication(application);
             ApplicationsEventPublisher.sendApplicationInstanceActivatedEvent(appId, instanceId);
         } else {
             log.warn(String.format("Application state transition is not valid: [application-id] %s " +
                             " [instance-id] %s [current-status] %s [status-requested] %s",
-                    appId, instanceId, context.getStatus(), status));
+                    appId, instanceId, applicationInstance.getStatus(), status));
         }
     }
 
     public static void handleApplicationInstanceInactivateEvent(String appId, String instanceId) {
         if (log.isDebugEnabled()) {
-            log.debug("Handling application Inactive event: [application-id] " + appId);
+            log.debug("Handling application Inactive event: [application-id] " + appId +
+                            " [instance] " + instanceId);
         }
 
         Applications applications = ApplicationHolder.getApplications();
@@ -162,53 +173,133 @@ public class ApplicationBuilder {
         }
 
         ApplicationStatus status = ApplicationStatus.Inactive;
-        ApplicationInstance context = application.getInstanceContexts(instanceId);
-        if (context.isStateTransitionValid(status)) {
+        ApplicationInstance applicationInstance = application.getInstanceContexts(instanceId);
+        if (applicationInstance.isStateTransitionValid(status)) {
             //setting the status, persist and publish
             application.setStatus(status, instanceId);
-            updateApplicationMonitor(appId, status, instanceId);
+            updateApplicationMonitor(appId, status, applicationInstance.getNetworkPartitionId(),
+                                    instanceId);
             ApplicationHolder.persistApplication(application);
             ApplicationsEventPublisher.sendApplicationInstanceInactivatedEvent(appId, instanceId);
         } else {
             log.warn(String.format("Application state transition is not valid: [application-id] %s " +
                             " [instance-id] %s [current-status] %s [status-requested] %s",
-                    appId, instanceId, context.getStatus(), status));
+                    appId, instanceId, applicationInstance.getStatus(), status));
         }
     }
 
-    public static void handleApplicationUndeployed(String appId) {
+    public static void handleApplicationRemoval(String appId) {
         if (log.isDebugEnabled()) {
             log.debug("Handling application unDeployment for [application-id] " + appId);
         }
-        Set<ClusterDataHolder> clusterData;
+        Set<ClusterDataHolder> appClusterDataToSend;
+        Application application;
         ApplicationHolder.acquireWriteLock();
         try {
             Applications applications = ApplicationHolder.getApplications();
-            Application application = applications.getApplication(appId);
+            application = applications.getApplication(appId);
             //update the status of the Group
             if (application == null) {
                 log.warn(String.format("Application does not exist: [application-id] %s",
                         appId));
                 return;
             } else {
+                // Check whether given application is deployed
                 org.apache.stratos.autoscaler.pojo.policy.deployment.DeploymentPolicy policy =
                         PolicyManager.getInstance().getDeploymentPolicyByApplication(appId);
                 if (policy != null) {
                     log.warn(String.format("Application has been found in the ApplicationsTopology" +
-                                    ": [application-id] %s, Please unDeploy the Application Policy.",
+                                    ": [application-id] %s, Please unDeploy the Application Policy " +
+                                    "before deleting the Application definition.",
                             appId));
+                    return;
                 }
             }
+
+            //get cluster data to send in event before deleting the application
+            appClusterDataToSend = new HashSet<ClusterDataHolder>();
+            Set<ClusterDataHolder> appClusterData = application.getClusterDataRecursively();
+            for (ClusterDataHolder currClusterData : appClusterData) {
+                ClusterDataHolder newClusterData = new ClusterDataHolder(currClusterData.getServiceType(), currClusterData.getClusterId());
+                appClusterDataToSend.add(newClusterData);
+            }
+
             ApplicationHolder.removeApplication(appId);
 
         } finally {
             ApplicationHolder.releaseWriteLock();
         }
 
-        log.info("[Application] " + appId + " has been successfully undeployed");
+        ApplicationsEventPublisher.sendApplicationDeletedEvent(appId, appClusterDataToSend);
     }
 
-    public static boolean handleApplicationPolicyUndeployed(String appId) {
+    public static void handleApplicationInstanceTerminatedEvent(String appId, String instanceId) {
+        if (log.isDebugEnabled()) {
+            log.debug("Handling application terminated event: [application-id] " + appId +
+                    " [instance] " + instanceId);
+        }
+
+        Applications applications = ApplicationHolder.getApplications();
+
+        if (!applications.applicationExists(appId)) {
+            log.warn("Application does not exist: [application-id] " + appId);
+        } else {
+            Application application = applications.getApplication(appId);
+            ApplicationInstance applicationInstance = application.getInstanceContexts(instanceId);
+            ApplicationStatus status = ApplicationStatus.Terminated;
+            if (applicationInstance.isStateTransitionValid(status)) {
+                //setting the status, persist and publish
+                applicationInstance.setStatus(status);
+                updateApplicationMonitor(appId, status, applicationInstance.getNetworkPartitionId(),
+                                        instanceId);
+                ApplicationMonitor applicationMonitor = AutoscalerContext.getInstance().
+                        getAppMonitor(appId);
+                applicationMonitor.getNetworkPartitionContext(applicationInstance.
+                                                                getNetworkPartitionId()).
+                        removeInstanceContext(instanceId);
+                applicationMonitor.removeInstance(instanceId);
+                application.removeInstance(instanceId);
+                //removing the monitor
+                if (application.getInstanceContextCount() == 0) {
+                    AutoscalerContext.getInstance().removeAppMonitor(appId);
+                    log.info("Application run time is removed: [application-id] " + appId);
+                    //Removing the application from memory and registry
+                    PrivilegedCarbonContext.startTenantFlow();
+                    try {
+                        PrivilegedCarbonContext.getThreadLocalCarbonContext().
+                                setTenantDomain(MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
+                        PrivilegedCarbonContext.getThreadLocalCarbonContext().
+                                setTenantId(MultitenantConstants.SUPER_TENANT_ID);
+                        String policyId = PolicyManager.getInstance().
+                                getDeploymentPolicyIdByApplication(appId);
+                        if (policyId != null) {
+                            try {
+                                PolicyManager.getInstance().undeployDeploymentPolicy(policyId);
+                                log.info("Deployment policy for the [Application] " + appId +
+                                        "has been removed.");
+                            } catch (InvalidPolicyException e) {
+                                log.error("Error while unDeploying the policy for [application] " + appId);
+                            }
+                        }
+                    } finally {
+                        PrivilegedCarbonContext.endTenantFlow();
+                    }
+
+
+                }
+                ApplicationsEventPublisher.sendApplicationInstanceTerminatedEvent(appId, instanceId);
+                //removing the clusters and persisted application
+                handleApplicationRemoval(appId);
+            } else {
+                log.warn(String.format("Application state transition is not valid: [application-id] %s " +
+                                " [current-status] %s [status-requested] %s", appId,
+                        application.getInstanceContexts(instanceId).getStatus(),
+                        status));
+            }
+        }
+    }
+
+    public static boolean handleApplicationUndeployed(String appId) {
         if (log.isDebugEnabled()) {
             log.debug("Handling application terminating event: [application-id] " + appId);
         }
@@ -231,7 +322,8 @@ public class ApplicationBuilder {
                 if (context1.isStateTransitionValid(status)) {
                     //setting the status, persist and publish
                     application.setStatus(status, context1.getInstanceId());
-                    updateApplicationMonitor(appId, status, context1.getInstanceId());
+                    updateApplicationMonitor(appId, status, context1.getNetworkPartitionId(),
+                                            context1.getInstanceId());
                     ApplicationHolder.persistApplication(application);
                     ApplicationsEventPublisher.sendApplicationInstanceTerminatingEvent(appId, context1.getInstanceId());
                 } else {
@@ -273,49 +365,13 @@ public class ApplicationBuilder {
         return true;
     }
 
-    public static void handleApplicationInstanceTerminatedEvent(String appId, String instanceId) {
-        if (log.isDebugEnabled()) {
-            log.debug("Handling application terminated event: [application-id] " + appId);
-        }
-
-        Applications applications = ApplicationHolder.getApplications();
-
-        if (!applications.applicationExists(appId)) {
-            log.warn("Application does not exist: [application-id] " + appId);
-        } else {
-            Application application = applications.getApplication(appId);
-            Set<ClusterDataHolder> clusterData = application.getClusterDataRecursively();
-            ApplicationInstance instance = application.getInstanceContexts(instanceId);
-            ApplicationStatus status = ApplicationStatus.Terminated;
-            if (instance.isStateTransitionValid(status)) {
-                //setting the status, persist and publish
-                instance.setStatus(status);
-                application.removeInstance(instanceId);
-                updateApplicationMonitor(appId, status, instanceId);
-                //removing the monitor
-                if(application.getInstanceContextCount() == 0) {
-                    AutoscalerContext.getInstance().removeAppMonitor(appId);
-                    //Removing the application from memory and registry
-                    ApplicationHolder.removeApplication(appId);
-                    log.info("Application is removed: [application-id] " + appId);
-
-                }
-                ApplicationsEventPublisher.sendApplicationInstanceTerminatedEvent(appId, clusterData);
-            } else {
-                log.warn(String.format("Application state transition is not valid: [application-id] %s " +
-                                " [current-status] %s [status-requested] %s", appId,
-                        application.getInstanceContexts(instanceId).getStatus(),
-                        status));
-            }
-        }
-    }
 
     public static void handleGroupInstanceTerminatedEvent(String appId, String groupId, String instanceId) {
         if (log.isDebugEnabled()) {
             log.debug("Handling group terminated event: [group-id] " + groupId +
-                    " [application-id] " + appId);
+                    " [application-id] " + appId + " [instance] " + instanceId);
         }
-
+        //lock has already been taken in the processor chain when calculating the status
         Applications applications = ApplicationHolder.getApplications();
         Application application = applications.getApplication(appId);
         //update the status of the Group
@@ -327,23 +383,48 @@ public class ApplicationBuilder {
 
         Group group = application.getGroupRecursively(groupId);
         if (group == null) {
-            log.warn(String.format("Group does not exist: [group-id] %s",
+            log.warn(String.format("Group does not exist: [group-id] %s when terminated group",
                     groupId));
             return;
         }
 
-        GroupInstance context = group.getInstanceContexts(instanceId);
+        GroupInstance groupInstance = group.getInstanceContexts(instanceId);
         GroupStatus status = GroupStatus.Terminated;
-        if (context != null) {
-            if (context.isStateTransitionValid(status)) {
+        String parentId;
+        if (groupInstance != null) {
+            if (groupInstance.isStateTransitionValid(status)) {
                 //setting the status, persist and publish
-                context.setStatus(status);
-                updateGroupMonitor(appId, groupId, status, instanceId);
-                ApplicationHolder.persistApplication(application);
-                ApplicationsEventPublisher.sendGroupInstanceTerminatedEvent(appId, groupId, instanceId);
+                groupInstance.setStatus(status);
+                parentId = groupInstance.getParentId();
+                //removing the group instance and context
+                GroupMonitor monitor = getGroupMonitor(appId, groupId);
+                ApplicationMonitor applicationMonitor = AutoscalerContext.getInstance().
+                        getAppMonitor(appId);
+
+                if (monitor != null) {
+                    if (monitor.hasMonitors() && applicationMonitor.isTerminating()) {
+                        for (Monitor monitor1 : monitor.getAliasToActiveMonitorsMap().values()) {
+                            //destroying the drools
+                            monitor1.destroy();
+                        }
+                    }
+                    GroupLevelNetworkPartitionContext networkPartitionContext =
+                            (GroupLevelNetworkPartitionContext) monitor.
+                                    getNetworkPartitionContext(groupInstance.getNetworkPartitionId());
+                    networkPartitionContext.removeInstanceContext(instanceId);
+                    if (groupInstance.getPartitionId() != null) {
+                        networkPartitionContext.getPartitionCtxt(groupInstance.getPartitionId()).
+                                removeActiveInstance(groupInstance);
+                    }
+                    monitor.removeInstance(instanceId);
+                    group.removeInstance(instanceId);
+                    ApplicationHolder.persistApplication(application);
+                    ApplicationsEventPublisher.sendGroupInstanceTerminatedEvent(appId, groupId, instanceId);
+                    monitor.setStatus(status, instanceId, parentId);
+                }
             } else {
                 log.warn("Group state transition is not valid: [group-id] " + groupId +
-                        " [instance-id] " + instanceId + " [current-state] " + context.getStatus()
+                        " [instance-id] " + instanceId + " [current-state] " + groupInstance.getStatus()
                         + "[requested-state] " + status);
             }
 
@@ -357,9 +438,9 @@ public class ApplicationBuilder {
     public static void handleGroupInstanceActivatedEvent(String appId, String groupId, String instanceId) {
         if (log.isDebugEnabled()) {
             log.debug("Handling group activation for the [group-id]: " + groupId +
-                    " in the [application-id] " + appId);
+                    " in the [application-id] " + appId + " [instance] " + instanceId);
         }
-
+        //lock has already been taken in the processor chain when calculating the status
         Applications applications = ApplicationHolder.getApplications();
         Application application = applications.getApplication(appId);
         //update the status of the Group
@@ -371,23 +452,24 @@ public class ApplicationBuilder {
 
         Group group = application.getGroupRecursively(groupId);
         if (group == null) {
-            log.warn(String.format("Group does not exist: [group-id] %s",
+            log.warn(String.format("Group does not exist: [group-id] %s when activating group",
                     groupId));
             return;
         }
 
-        GroupInstance context = group.getInstanceContexts(instanceId);
+        GroupInstance groupInstance = group.getInstanceContexts(instanceId);
         GroupStatus status = GroupStatus.Active;
-        if (context != null) {
-            if (context.isStateTransitionValid(status)) {
+        if (groupInstance != null) {
+            if (groupInstance.isStateTransitionValid(status)) {
                 //setting the status, persist and publish
-                context.setStatus(status);
-                updateGroupMonitor(appId, groupId, status, instanceId);
+                groupInstance.setStatus(status);
+                updateGroupMonitor(appId, groupId, status, groupInstance.getNetworkPartitionId(),
+                        instanceId, groupInstance.getParentId());
                 ApplicationHolder.persistApplication(application);
                 ApplicationsEventPublisher.sendGroupInstanceActivatedEvent(appId, groupId, instanceId);
             } else {
                 log.warn("Group state transition is not valid: [group-id] " + groupId +
-                        " [instance-id] " + instanceId + " [current-state] " + context.getStatus()
+                        " [instance-id] " + instanceId + " [current-state] " + groupInstance.getStatus()
                         + "[requested-state] " + status);
             }
 
@@ -397,51 +479,15 @@ public class ApplicationBuilder {
         }
     }
 
-    public static void handleGroupInstanceCreatedEvent(String appId, String groupId, String instanceId) {
-        if (log.isDebugEnabled()) {
-            log.debug("Handling Group creation for the [group]: " + groupId +
-                    " in the [application] " + appId);
-        }
-
-        Applications applications = ApplicationHolder.getApplications();
-        Application application = applications.getApplication(appId);
-        //update the status of the Group
-        if (application == null) {
-            log.warn(String.format("Application %s does not exist",
-                    appId));
-            return;
-        }
-
-        Group group = application.getGroupRecursively(groupId);
-        if (group == null) {
-            log.warn(String.format("Group %s does not exist",
-                    groupId));
-            return;
-        }
-
-        GroupStatus status = GroupStatus.Created;
-        if (group.isStateTransitionValid(status, null)) {
-            //setting the status, persist and publish
-            updateGroupMonitor(appId, groupId, status, instanceId);
-            ApplicationHolder.persistApplication(application);
-            ApplicationsEventPublisher.sendGroupInstanceCreatedEvent(appId, groupId, null);
-        } else {
-            log.warn("Group state transition is not valid: [group-id] " + groupId + " [current-state] " + group.getStatus(null)
-                    + "[requested-state] " + status);
-        }
-    }
-
     public static GroupInstance handleGroupInstanceCreatedEvent(String appId, String groupId,
                                                                 String parentId,
                                                                 String networkPartitionId,
-                                                                String instanceId,
                                                                 String partitionId) {
-        GroupInstance instance = null;
         ApplicationHolder.acquireWriteLock();
         try {
             if (log.isDebugEnabled()) {
-                log.debug("Handling Group creation for the [group]: " + groupId +
-                        " in the [application] " + appId);
+                log.debug("Handling Group instance creation for the [group]: " + groupId +
+                        " in the [application] " + appId );
             }
             Applications applications = ApplicationHolder.getApplications();
             Application application = applications.getApplication(appId);
@@ -449,29 +495,41 @@ public class ApplicationBuilder {
             if (application == null) {
                 log.warn(String.format("Application %s does not exist",
                         appId));
-                return instance;
+                return null;
             }
 
             Group group = application.getGroupRecursively(groupId);
             if (group == null) {
-                log.warn(String.format("Group %s does not exist",
+                log.warn(String.format("Group %s does not exist when creating group",
                         groupId));
-                return instance;
+                return null;
             }
 
             GroupStatus status = GroupStatus.Created;
+            String instanceId = parentId;
+            int minGroupInstances = group.getGroupMinInstances();
+            int maxGroupInstances = group.getGroupMaxInstances();
+            /*
+            * When min != 1 or max != 1, we need to generate
+            * instance ids as it is having more than one group instances
+            */
+            if (minGroupInstances > 1 || maxGroupInstances > 1 || group.isGroupScalingEnabled()) {
+                instanceId = group.getNextInstanceId(groupId);
+            }
 
             if (!group.containsInstanceContext(instanceId)) {
                 //setting the status, persist and publish
-                instance = new GroupInstance(groupId, instanceId);
-                instance.setParentId(parentId);
-                instance.setPartitionId(partitionId);
-                instance.setNetworkPartitionId(networkPartitionId);
-                instance.setStatus(status);
-                group.addInstance(instanceId, instance);
+                GroupInstance groupInstance = null;
+                groupInstance = new GroupInstance(groupId, instanceId);
+                groupInstance.setParentId(parentId);
+                groupInstance.setPartitionId(partitionId);
+                groupInstance.setNetworkPartitionId(networkPartitionId);
+                groupInstance.setStatus(status);
+                group.addInstance(instanceId, groupInstance);
                 //updateGroupMonitor(appId, groupId, status);
                 ApplicationHolder.persistApplication(application);
-                ApplicationsEventPublisher.sendGroupInstanceCreatedEvent(appId, groupId, instance);
+                ApplicationsEventPublisher.sendGroupInstanceCreatedEvent(appId, groupId, groupInstance);
+                return groupInstance;
             } else {
                 log.warn("Group Instance Context already exists: [group-id] " + groupId +
                         " [Group-Instance-Id] " + instanceId);
@@ -479,15 +537,13 @@ public class ApplicationBuilder {
         } finally {
             ApplicationHolder.releaseWriteLock();
         }
-
-
-        return instance;
+        return null;
     }
 
 
-    public static void handleGroupInActivateEvent(String appId, String groupId, String instanceId) {
+    public static void handleGroupInactivateEvent(String appId, String groupId, String instanceId) {
         if (log.isDebugEnabled()) {
-            log.debug("Handling group in-active event: [group]: " + groupId +
+            log.debug("Handling group inactive event: [group]: " + groupId +
                     " [application-id] " + appId);
         }
 
@@ -502,23 +558,24 @@ public class ApplicationBuilder {
 
         Group group = application.getGroupRecursively(groupId);
         if (group == null) {
-            log.warn(String.format("Group does not exist: [group-id] %s",
+            log.warn(String.format("Group does not exist: [group-id] %s when inactive group",
                     groupId));
             return;
         }
 
-        GroupInstance context = group.getInstanceContexts(instanceId);
+        GroupInstance groupInstance = group.getInstanceContexts(instanceId);
         GroupStatus status = GroupStatus.Inactive;
-        if (context != null) {
-            if (context.isStateTransitionValid(status)) {
+        if (groupInstance != null) {
+            if (groupInstance.isStateTransitionValid(status)) {
                 //setting the status, persist and publish
-                context.setStatus(status);
-                updateGroupMonitor(appId, groupId, status, instanceId);
+                groupInstance.setStatus(status);
+                updateGroupMonitor(appId, groupId, status, groupInstance.getNetworkPartitionId(),
+                        instanceId, groupInstance.getParentId());
                 ApplicationHolder.persistApplication(application);
-                ApplicationsEventPublisher.sendGroupInstanceInActivateEvent(appId, groupId, instanceId);
+                ApplicationsEventPublisher.sendGroupInstanceInactivateEvent(appId, groupId, instanceId);
             } else {
                 log.warn("Group state transition is not valid: [group-id] " + groupId +
-                        " [instance-id] " + instanceId + " [current-state] " + context.getStatus()
+                        " [instance-id] " + instanceId + " [current-state] " + groupInstance.getStatus()
                         + "[requested-state] " + status);
             }
 
@@ -531,7 +588,7 @@ public class ApplicationBuilder {
     public static void handleGroupTerminatingEvent(String appId, String groupId, String instanceId) {
         if (log.isDebugEnabled()) {
             log.debug("Handling group terminating: [group-id] " + groupId +
-                    " [application-id] " + appId);
+                    " [application-id] " + appId + " [instance] " + instanceId);
         }
 
         Applications applications = ApplicationHolder.getApplications();
@@ -545,25 +602,26 @@ public class ApplicationBuilder {
 
         Group group = application.getGroupRecursively(groupId);
         if (group == null) {
-            log.warn(String.format("Group does not exist: [group-id] %s",
+            log.warn(String.format("Group does not exist: [group-id] %s when terminating group",
                     groupId));
             return;
         }
 
         try {
             ApplicationHolder.acquireWriteLock();
-            GroupInstance context = group.getInstanceContexts(instanceId);
+            GroupInstance groupInstance = group.getInstanceContexts(instanceId);
             GroupStatus status = GroupStatus.Terminating;
-            if (context != null) {
-                if (context.isStateTransitionValid(status)) {
+            if (groupInstance != null) {
+                if (groupInstance.isStateTransitionValid(status)) {
                     //setting the status, persist and publish
-                    context.setStatus(status);
-                    updateGroupMonitor(appId, groupId, status, instanceId);
+                    groupInstance.setStatus(status);
+                    updateGroupMonitor(appId, groupId, status, groupInstance.getNetworkPartitionId(),
+                            instanceId, groupInstance.getParentId());
                     ApplicationHolder.persistApplication(application);
                     ApplicationsEventPublisher.sendGroupInstanceTerminatingEvent(appId, groupId, instanceId);
                 } else {
                     log.warn("Group state transition is not valid: [group-id] " + groupId +
-                            " [instance-id] " + instanceId + " [current-state] " + context.getStatus()
+                            " [instance-id] " + instanceId + " [current-state] " + groupInstance.getStatus()
                             + "[requested-state] " + status);
                 }
 
@@ -576,26 +634,24 @@ public class ApplicationBuilder {
         }
     }
 
-    private static void updateGroupStatusesRecursively(GroupStatus groupStatus, Collection<Group> groups) {
-
-        for (Group group : groups) {
-            if (!group.isStateTransitionValid(groupStatus, null)) {
-                log.error("Invalid state transfer from " + group.getStatus(null) + " to " + groupStatus);
-            }
-            // force update for now
-            //group.notifyParentMonitor(groupStatus, null);
-
-            // go recursively and update
-            if (group.getGroups() != null) {
-                updateGroupStatusesRecursively(groupStatus, group.getGroups());
-            }
-        }
-    }
-
-    private static void updateApplicationMonitor(String appId, ApplicationStatus status, String instanceId) {
+    private static void updateApplicationMonitor(String appId, ApplicationStatus status,
+                                                 String networkPartitionId, String instanceId) {
         //Updating the Application Monitor
         ApplicationMonitor applicationMonitor = AutoscalerContext.getInstance().getAppMonitor(appId);
         if (applicationMonitor != null) {
+            if(status == ApplicationStatus.Active) {
+                applicationMonitor.getNetworkPartitionContext(networkPartitionId).
+                        movePendingInstanceToActiveInstances(instanceId);
+            } else if(status == ApplicationStatus.Terminating) {
+                applicationMonitor.setTerminating(true);
+                NetworkPartitionContext context = applicationMonitor.
+                        getNetworkPartitionContext(networkPartitionId);
+                if(context.getActiveInstance(instanceId) != null) {
+                    context.moveActiveInstanceToTerminationPendingInstances(instanceId);
+                } else if(context.getPendingInstance(instanceId) != null) {
+                    context.movePendingInstanceToTerminationPendingInstances(instanceId);
+                }
+            }
             applicationMonitor.setStatus(status, instanceId);
         } else {
             log.warn("Application monitor cannot be found: [application-id] " + appId);
@@ -603,17 +659,37 @@ public class ApplicationBuilder {
 
     }
 
-    private static void updateGroupMonitor(String appId, String groupId, GroupStatus status, String instanceId) {
+    private static void updateGroupMonitor(String appId, String groupId,
+                                           GroupStatus status, String networkPartitionId,
+                                           String instanceId, String parentInstanceId) {
+        GroupMonitor monitor = getGroupMonitor(appId, groupId);
+        if (monitor != null) {
+            if(status == GroupStatus.Active) {
+                monitor.getNetworkPartitionContext(networkPartitionId).
+                        movePendingInstanceToActiveInstances(instanceId);
+            } else if(status == GroupStatus.Terminating) {
+                NetworkPartitionContext context = monitor.
+                        getNetworkPartitionContext(networkPartitionId);
+                if(context.getActiveInstance(instanceId) != null) {
+                    context.moveActiveInstanceToTerminationPendingInstances(instanceId);
+                } else if(context.getPendingInstance(instanceId) != null) {
+                    context.movePendingInstanceToTerminationPendingInstances(instanceId);
+                }
+            }
+            monitor.setStatus(status, instanceId, parentInstanceId);
+        } else {
+            log.warn("Group monitor cannot be found: [group-id] " + groupId +
+                    " [application-id] " + appId);
+        }
+    }
+
+    private static GroupMonitor getGroupMonitor(String appId, String groupId) {
         //Updating the Application Monitor
         ApplicationMonitor applicationMonitor = AutoscalerContext.getInstance().getAppMonitor(appId);
         if (applicationMonitor != null) {
             GroupMonitor monitor = (GroupMonitor) applicationMonitor.findGroupMonitorWithId(groupId);
-            if (monitor != null) {
-                monitor.setStatus(status, instanceId);
-            } else {
-                log.warn("Group monitor cannot be found: [group-id] " + groupId +
-                        " [application-id] " + appId);
-            }
+            return monitor;
         }
+        return null;
     }
 }

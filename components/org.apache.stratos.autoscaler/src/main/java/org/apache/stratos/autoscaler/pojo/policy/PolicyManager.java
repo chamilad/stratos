@@ -21,7 +21,6 @@ package org.apache.stratos.autoscaler.pojo.policy;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
@@ -64,14 +63,17 @@ public class PolicyManager {
     }
 
     // Add the policy to information model and persist.
-    public boolean deployAutoscalePolicy(AutoscalePolicy policy) throws InvalidPolicyException {
+    public boolean addAutoscalePolicy(AutoscalePolicy policy) throws InvalidPolicyException {
+        if (log.isInfoEnabled()) {
+            log.info(String.format("Starting to add autoscaling policy: [id] %s", policy.getId()));
+        }
         if(StringUtils.isEmpty(policy.getId())){
             throw new AutoScalerException("Autoscaling policy id cannot be empty");
         }
         this.addASPolicyToInformationModel(policy);
         RegistryManager.getInstance().persistAutoscalerPolicy(policy);
         if (log.isInfoEnabled()) {
-            log.info(String.format("Autoscaling policy is deployed successfully: [id] %s", policy.getId()));
+            log.info(String.format("Autoscaling policy is added successfully: [id] %s", policy.getId()));
         }
         return true;
     }
@@ -89,67 +91,14 @@ public class PolicyManager {
     }
 
     // Add the deployment policy to information model and persist.
-    public String deployDeploymentPolicy(DeploymentPolicy policy) throws InvalidPolicyException {
-        String policyId = addDeploymentPolicyToInformationModel(policy);
+    public void addDeploymentPolicy(DeploymentPolicy policy) throws InvalidPolicyException {
+        addDeploymentPolicyToInformationModel(policy);
         RegistryManager.getInstance().persistDeploymentPolicy(policy);
 
         if (log.isInfoEnabled()) {
-            log.info(String.format("Deployment policy is deployed successfully: [id] %s", policyId));
+            log.info(String.format("Deployment policy is added successfully: [application-id] %s",
+                    policy.getApplicationId()));
         }
-        return policyId;
-    }
-
-    public boolean updateDeploymentPolicy(DeploymentPolicy policy) throws InvalidPolicyException {
-        if(StringUtils.isEmpty(policy.getId())){
-            throw new AutoScalerException("Deploying policy id cannot be empty");
-        }
-        try {
-            if(log.isInfoEnabled()) {
-                log.info(String.format("Updating deployment policy: [id] %s", policy.getId()));
-            }
-            fillPartitions(policy);
-        } catch (InvalidPartitionException e) {
-            log.error(e);
-            throw new InvalidPolicyException(String.format("Deployment policy is invalid: [id] %s", policy.getId()), e);
-        }
-
-        updateDeploymentPolicyToInformationModel(policy);
-        RegistryManager.getInstance().persistDeploymentPolicy(policy);
-
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Deployment policy is updated successfully: [id] %s", policy.getId()));
-        }
-        return true;
-    }
-
-    private void fillPartitions(DeploymentPolicy deploymentPolicy) throws InvalidPartitionException {
-        //TODO fill partition by extracting the partitions from policy
-//        PartitionManager partitionMgr = PartitionManager.getInstance();
-//        for (Partition partition : deploymentPolicy.getAllPartitions()) {
-//            String partitionId = partition.getId();
-//            if ((partitionId == null) || (!partitionMgr.partitionExist(partitionId))) {
-//                String msg = "Could not find partition: [id] " + partitionId + ". " +
-//                        "Please deploy the partitions before deploying the deployment policies.";
-//                throw new InvalidPartitionException(msg);
-//            }
-//
-//            fillPartition(partition, PartitionManager.getInstance().getPartitionById(partitionId));
-//        }
-    }
-
-    private static void fillPartition(Partition destPartition, Partition srcPartition) {
-        if(srcPartition.getProvider() == null)        	
-            throw new RuntimeException("Provider is not set in the deployed partition");
-
-        if (log.isDebugEnabled()) {
-            log.debug(String.format("Setting provider for partition: [id] %s [provider] %s", destPartition.getId(), srcPartition.getProvider()));
-        }
-        destPartition.setProvider(srcPartition.getProvider());
-
-        if (log.isDebugEnabled()) {
-            log.debug(String.format("Setting properties for partition: [id] %s [properties] %s", destPartition.getId(), srcPartition.getProperties()));
-        }
-        destPartition.setProperties(srcPartition.getProperties());
     }
 
     public void addASPolicyToInformationModel(AutoscalePolicy asPolicy) throws InvalidPolicyException {
@@ -212,31 +161,27 @@ public class PolicyManager {
     }
 
     // Add the deployment policy to As in memmory information model. Does not persist.
-    public String addDeploymentPolicyToInformationModel(DeploymentPolicy policy) throws InvalidPolicyException {
-        if (StringUtils.isEmpty(policy.getId())) {
-            // id = application id + random string
-            String id = policy.getApplicationId() + UUID.randomUUID().getLeastSignificantBits();
-            policy.setId(id);
+    public void addDeploymentPolicyToInformationModel(DeploymentPolicy policy) throws InvalidPolicyException {
+        if (StringUtils.isEmpty(policy.getApplicationId())) {
+            throw new RuntimeException("Application id is not defined in deployment policy");
         }
-        if (!deploymentPolicyListMap.containsKey(policy.getId())) {
+        if (!deploymentPolicyListMap.containsKey(policy.getApplicationId())) {
             if (log.isDebugEnabled()) {
-                log.debug("Adding deployment policy: " + policy.getId());
+                log.debug("Adding deployment policy: " + policy.getApplicationId());
             }
-            deploymentPolicyListMap.put(policy.getId(), policy);
+            deploymentPolicyListMap.put(policy.getApplicationId(), policy);
         } else {
-        	String errMsg = "Specified deployment policy [" + policy.getId()+ "] already exists";
+        	String errMsg = "Specified deployment policy [" + policy.getApplicationId()+ "] already exists";
         	log.error(errMsg);
             throw new InvalidPolicyException(errMsg);
         }
-        
-        return policy.getId();
     }
 
     public void updateDeploymentPolicyToInformationModel(DeploymentPolicy policy) throws InvalidPolicyException {
         if (log.isDebugEnabled()) {
-            log.debug("Updating deployment policy: " + policy.getId());
+            log.debug("Updating deployment policy: " + policy.getApplicationId());
         }
-        deploymentPolicyListMap.put(policy.getId(), policy);
+        deploymentPolicyListMap.put(policy.getApplicationId(), policy);
     }
 
     /**
@@ -285,6 +230,15 @@ public class PolicyManager {
         for(DeploymentPolicy deploymentPolicy : deploymentPolicyListMap.values()) {
             if(deploymentPolicy.getApplicationId().equals(appId)) {
                 return deploymentPolicy;
+            }
+        }
+        return null;
+    }
+
+    public String getDeploymentPolicyIdByApplication(String appId) {
+        for(Map.Entry<String, DeploymentPolicy> entry : deploymentPolicyListMap.entrySet()) {
+            if(entry.getValue().getApplicationId().equals(appId)) {
+                return entry.getKey();
             }
         }
         return null;

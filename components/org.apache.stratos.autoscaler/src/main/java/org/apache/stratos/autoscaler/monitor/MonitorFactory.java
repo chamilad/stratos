@@ -24,28 +24,21 @@ import org.apache.stratos.autoscaler.applications.ApplicationHolder;
 import org.apache.stratos.autoscaler.applications.dependency.context.ApplicationChildContext;
 import org.apache.stratos.autoscaler.applications.dependency.context.ClusterChildContext;
 import org.apache.stratos.autoscaler.applications.dependency.context.GroupChildContext;
-import org.apache.stratos.autoscaler.client.CloudControllerClient;
 import org.apache.stratos.autoscaler.context.AutoscalerContext;
-import org.apache.stratos.autoscaler.context.cluster.ClusterContextFactory;
-import org.apache.stratos.autoscaler.context.cluster.VMClusterContext;
 import org.apache.stratos.autoscaler.exception.application.DependencyBuilderException;
 import org.apache.stratos.autoscaler.exception.application.TopologyInConsistentException;
 import org.apache.stratos.autoscaler.exception.partition.PartitionValidationException;
 import org.apache.stratos.autoscaler.exception.policy.PolicyValidationException;
 import org.apache.stratos.autoscaler.monitor.cluster.AbstractClusterMonitor;
 import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitorFactory;
+import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitor;
 import org.apache.stratos.autoscaler.monitor.component.ApplicationMonitor;
 import org.apache.stratos.autoscaler.monitor.component.GroupMonitor;
 import org.apache.stratos.autoscaler.monitor.component.ParentComponentMonitor;
-import org.apache.stratos.autoscaler.util.ServiceReferenceHolder;
 import org.apache.stratos.messaging.domain.applications.Application;
 import org.apache.stratos.messaging.domain.applications.Group;
-import org.apache.stratos.messaging.domain.instance.ApplicationInstance;
-import org.apache.stratos.messaging.domain.instance.ClusterInstance;
-import org.apache.stratos.messaging.domain.instance.GroupInstance;
-import org.apache.stratos.messaging.domain.instance.Instance;
+import org.apache.stratos.messaging.domain.applications.ScalingDependentList;
 import org.apache.stratos.messaging.domain.topology.Cluster;
-import org.apache.stratos.messaging.domain.topology.ClusterStatus;
 import org.apache.stratos.messaging.domain.topology.Service;
 import org.apache.stratos.messaging.domain.topology.Topology;
 import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
@@ -88,11 +81,6 @@ public class MonitorFactory {
         return monitor;
     }
 
-    private static void createClusterInstance(String serviceType, String clusterId, String alias,
-                                              String instanceId, String partitionId, String networkPartitionId) {
-        CloudControllerClient.getInstance().createClusterInstance(serviceType, clusterId, alias,
-                instanceId, partitionId, networkPartitionId);
-    }
 
     /**
      * This will create the GroupMonitor based on given groupId by going thr Topology
@@ -111,12 +99,22 @@ public class MonitorFactory {
             TopologyInConsistentException {
         GroupMonitor groupMonitor;
         boolean initialStartup = false;
-        //acquiring read lock to create the monitor
-        ApplicationHolder.acquireReadLock();
         try {
+            //acquiring read lock to create the monitor
+            ApplicationHolder.acquireReadLock();
             Group group = ApplicationHolder.getApplications().
                     getApplication(appId).getGroupRecursively(context.getId());
-            groupMonitor = new GroupMonitor(group, appId, instanceIds);
+
+            boolean hasScalingDependents = false;
+            if (parentMonitor.getScalingDependencies() != null) {
+                for (ScalingDependentList scalingDependentList : parentMonitor.getScalingDependencies()) {
+                    if (scalingDependentList.getScalingDependentListComponents().contains(context.getId())) {
+                        hasScalingDependents = true;
+                    }
+                }
+            }
+
+            groupMonitor = new GroupMonitor(group, appId, instanceIds, hasScalingDependents);
             groupMonitor.setAppId(appId);
             if (parentMonitor != null) {
                 groupMonitor.setParent(parentMonitor);
@@ -127,24 +125,16 @@ public class MonitorFactory {
                 } else {
                     groupMonitor.setHasStartupDependents(false);
                 }
-            }
-            if (group.isGroupScalingEnabled()) {
-                groupMonitor.setGroupScalingEnabled(true);
-            } else if (parentMonitor instanceof GroupMonitor) {
-                if (((GroupMonitor) parentMonitor).isGroupScalingEnabled() ||
-                        parentMonitor.hasGroupScalingDependent()) {
-                    groupMonitor.setHasGroupScalingDependent(true);
-                }
+	            groupMonitor.startScheduler();
             }
         } finally {
             ApplicationHolder.releaseReadLock();
-
         }
 
         Group group = ApplicationHolder.getApplications().
                 getApplication(appId).getGroupRecursively(context.getId());
         //Starting the minimum dependencies
-        initialStartup = groupMonitor.createInstanceAndStartDependencyAtStartup(group, instanceIds);
+        groupMonitor.createInstanceAndStartDependencyAtStartup(group, instanceIds);
 
         /**
          * If not first app deployment, acquiring read lock to check current the status of the group,
@@ -168,36 +158,34 @@ public class MonitorFactory {
      * This will create a new app monitor based on the give appId by getting the
      * application from Topology
      *
-     * @param appId appId of the application which requires to create app monitor
+     * @param applicationId appId of the application which requires to create app monitor
      * @return ApplicationMonitor
      * @throws DependencyBuilderException    throws while building dependency for app monitor
      * @throws TopologyInConsistentException throws while traversing thr topology
      */
-    public static ApplicationMonitor getApplicationMonitor(String appId)
+    public static ApplicationMonitor getApplicationMonitor(String applicationId)
             throws DependencyBuilderException,
             TopologyInConsistentException, PolicyValidationException {
         ApplicationMonitor applicationMonitor;
-        boolean initialStartup = false;
         Application application;
-        //acquiring read lock to start the monitor
-        ApplicationHolder.acquireReadLock();
         try {
-            application = ApplicationHolder.getApplications().getApplication(appId);
+            //acquiring read lock to start the monitor
+            ApplicationHolder.acquireReadLock();
+            application = ApplicationHolder.getApplications().getApplication(applicationId);
             if (application != null) {
                 applicationMonitor = new ApplicationMonitor(application);
                 applicationMonitor.setHasStartupDependents(false);
-
-
+                //starting the scheduler of the application monitor
+                applicationMonitor.startScheduler();
             } else {
-                String msg = "[Application] " + appId + " cannot be found in the Topology";
+                String msg = "Application not found in the topology: [application-id] " + applicationId;
                 throw new TopologyInConsistentException(msg);
             }
         } finally {
             ApplicationHolder.releaseReadLock();
-
         }
 
-        initialStartup = applicationMonitor.startMinimumDependencies(application);
+        applicationMonitor.startMinimumDependencies(application);
 
         /*//If not first app deployment, then calculate the current status of the app instance.
         if (!initialStartup) {
@@ -212,7 +200,6 @@ public class MonitorFactory {
         }*/
 
         return applicationMonitor;
-
     }
 
     /**
@@ -252,7 +239,24 @@ public class MonitorFactory {
                 String msg = "[Service] " + serviceName + " cannot be found in the Topology";
                 throw new TopologyInConsistentException(msg);
             }
-            AbstractClusterMonitor clusterMonitor = ClusterMonitorFactory.getMonitor(cluster);
+
+            boolean hasScalingDependents = false;
+            if(parentMonitor.getScalingDependencies() != null) {
+                for (ScalingDependentList scalingDependentList : parentMonitor.getScalingDependencies()) {
+                    if (scalingDependentList.getScalingDependentListComponents().contains(clusterId)) {
+                        hasScalingDependents = true;
+                    }
+                }
+            }
+
+            boolean groupScalingEnabledSubtree = false;
+            if (parentMonitor instanceof GroupMonitor) {
+
+                GroupMonitor groupMonitor = (GroupMonitor) parentMonitor;
+                groupScalingEnabledSubtree = findIfChildIsInGroupScalingEnabledSubTree(groupMonitor);
+            }
+            AbstractClusterMonitor clusterMonitor = ClusterMonitorFactory.getMonitor(cluster, hasScalingDependents,
+                    groupScalingEnabledSubtree);
             //Setting the parent of the cluster monitor
             clusterMonitor.setParent(parentMonitor);
             clusterMonitor.setId(clusterId);
@@ -265,62 +269,26 @@ public class MonitorFactory {
                 clusterMonitor.setHasStartupDependents(false);
             }
 
-            //setting the scaling dependent behaviour of the cluster monitor
-            if (parentMonitor.hasGroupScalingDependent() || (context.isGroupScalingEnabled())) {
-                clusterMonitor.setHasGroupScalingDependent(true);
-            } else {
-                clusterMonitor.setHasGroupScalingDependent(false);
-            }
-
-            for (String parentInstanceId : parentInstanceIds) {
-                Instance parentMonitorInstance = parentMonitor.getInstance(parentInstanceId);
-                String partitionId = null;
-                if (parentMonitorInstance instanceof GroupInstance) {
-                    partitionId = parentMonitorInstance.getPartitionId();
-                }
-                if (parentMonitorInstance != null) {
-                    ClusterInstance clusterInstance = cluster.getInstanceContexts(parentInstanceId);
-                    if (clusterInstance != null) {
-                        // Cluster instance is already there. No need to create one.
-                        VMClusterContext clusterContext;
-                        clusterContext =
-                                ClusterContextFactory.getVMClusterContext(clusterInstance.getInstanceId(), cluster);
-                        clusterMonitor.setClusterContext(clusterContext);
-                        // create VMClusterContext and then add all the instanceContexts
-                        clusterContext.addInstanceContext(parentInstanceId, cluster);
-                        if (clusterMonitor.getInstance(clusterInstance.getInstanceId()) == null) {
-                            clusterMonitor.addInstance(clusterInstance);
-                        }
-                        // Checking the current status of the cluster instance
-                        boolean stateChanged =
-                                ServiceReferenceHolder.getInstance().getClusterStatusProcessorChain()
-                                        .process("", clusterId, clusterInstance.getInstanceId());
-                        if (!stateChanged && clusterInstance.getStatus() != ClusterStatus.Created) {
-                            clusterMonitor.notifyParentMonitor(clusterInstance.getStatus(),
-                                    clusterInstance.getInstanceId());
-
-                            if (clusterMonitor.hasMonitoringStarted().compareAndSet(false, true)) {
-                                clusterMonitor.startScheduler();
-                                log.info("Monitoring task for Cluster Monitor with cluster id " +
-                                        clusterId + " started successfully");
-                            }
-                        }
-                    } else {
-                        createClusterInstance(cluster.getServiceName(), clusterId, null, parentInstanceId, partitionId,
-                                parentMonitorInstance.getNetworkPartitionId());
-                    }
-
-                } else {
-
-                }
-                AutoscalerContext.getInstance().addClusterMonitor(clusterMonitor);
-
-            }
+            //Creating the instance of the cluster
+            ((ClusterMonitor) clusterMonitor).createClusterInstances(parentInstanceIds, cluster);
+            //add it to autoscaler context
+            AutoscalerContext.getInstance().addClusterMonitor(clusterMonitor);
 
             return clusterMonitor;
-
         } finally {
             TopologyManager.releaseReadLockForCluster(serviceName, clusterId);
         }
+    }
+
+    private static boolean findIfChildIsInGroupScalingEnabledSubTree(GroupMonitor groupMonitor) {
+        boolean groupScalingEnabledSubtree = false;
+        ParentComponentMonitor parentComponentMonitor = groupMonitor.getParent();
+
+        if (parentComponentMonitor != null && parentComponentMonitor instanceof GroupMonitor) {
+            findIfChildIsInGroupScalingEnabledSubTree((GroupMonitor) parentComponentMonitor);
+        } else {
+            return groupMonitor.isGroupScalingEnabled();
+        }
+        return groupScalingEnabledSubtree;
     }
 }

@@ -26,8 +26,7 @@ import org.apache.stratos.autoscaler.stub.AutoScalerServiceAutoScalerExceptionEx
 import org.apache.stratos.autoscaler.stub.AutoScalerServiceInvalidServiceGroupExceptionException;
 import org.apache.stratos.autoscaler.stub.pojo.Dependencies;
 import org.apache.stratos.autoscaler.stub.pojo.ServiceGroup;
-import org.apache.stratos.autoscaler.stub.exception.*;
-import org.apache.stratos.cloud.controller.stub.CloudControllerServiceUnregisteredCartridgeExceptionException;
+import org.apache.stratos.cloud.controller.stub.CloudControllerServiceCartridgeNotFoundExceptionException;
 import org.apache.stratos.manager.client.AutoscalerServiceClient;
 import org.apache.stratos.manager.client.CloudControllerServiceClient;
 import org.apache.stratos.manager.exception.ADCException;
@@ -36,7 +35,6 @@ import org.apache.stratos.manager.exception.ServiceGroupDefinitioException;
 import org.apache.stratos.manager.grouping.definitions.DependencyDefinitions;
 import org.apache.stratos.manager.grouping.definitions.ServiceGroupDefinition;
 
-import java.lang.reflect.Array;
 import java.rmi.RemoteException;
 import java.util.*;
 
@@ -115,7 +113,7 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
                     }
                 } catch (RemoteException e) {
                     throw new ADCException(e);
-                } catch (CloudControllerServiceUnregisteredCartridgeExceptionException e) {
+                } catch (CloudControllerServiceCartridgeNotFoundExceptionException e) {
                     throw new ADCException(e);
                 }
             }
@@ -168,7 +166,7 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
                 log.debug("deplying to cloud controller service group " + serviceGroupDefinition.getName());
             }
 
-            asServiceClient.deployServiceGroup(serviceGroup);
+            asServiceClient.addServiceGroup(serviceGroup);
 
         } catch (AxisFault axisFault) {
             throw new ADCException(axisFault);
@@ -199,7 +197,7 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
                 return null;
             }
 
-            ServiceGroupDefinition serviceGroupDef = populateServiceGroupDefinitionPojo(serviceGroup);
+            ServiceGroupDefinition serviceGroupDef = convertServiceGroupToServiceGroupDefinition(serviceGroup);
             return serviceGroupDef;
 
         } catch (AxisFault axisFault) {
@@ -227,7 +225,7 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
 
             ServiceGroupDefinition[] serviceGroupDefinitions = new ServiceGroupDefinition[serviceGroups.length];
             for (int i = 0; i < serviceGroups.length; i++) {
-                serviceGroupDefinitions[i] = populateServiceGroupDefinitionPojo(serviceGroups[i]);
+                serviceGroupDefinitions[i] = convertServiceGroupToServiceGroupDefinition(serviceGroups[i]);
             }
             return serviceGroupDefinitions;
 
@@ -272,7 +270,7 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
         ServiceGroup servicegroup = new ServiceGroup();
 
         // implement conversion (mostly List -> Array)
-        servicegroup.setGroupscalingEnabled(serviceGroupDefinition.isGroupScalingEnabled());
+        servicegroup.setGroupscalingEnabled(serviceGroupDefinition.isGroupScalingEnabled);
         List<ServiceGroupDefinition> groupsDef = serviceGroupDefinition.getGroups();
         List<String> cartridgesDef = serviceGroupDefinition.getCartridges();
 
@@ -289,8 +287,8 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
         ServiceGroup[] subGroups = new ServiceGroup[groupsDef.size()];
         String[] cartridges = new String[cartridgesDef.size()];
 
+        int i = 0;
         for (ServiceGroupDefinition groupDefinition : groupsDef) {
-            int i = 0;
             subGroups[i] = populateServiceGroupPojo(groupDefinition);
             ++i;
         }
@@ -312,13 +310,21 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
             // validate termination behavior
             validateTerminationBehavior(depDefs.getTerminationBehaviour());
             deps.setTerminationBehaviour(depDefs.getTerminationBehaviour());
+			if (depDefs.getScalingDependants() != null) {
+				deps.setScalingDependants(depDefs.getScalingDependants()
+				        .toArray(new String[depDefs.getScalingDependants().size()]));
+			}
             servicegroup.setDependencies(deps);
         }
 
         return servicegroup;
     }
 
-    private ServiceGroupDefinition populateServiceGroupDefinitionPojo(ServiceGroup serviceGroup) {
+    private ServiceGroupDefinition convertServiceGroupToServiceGroupDefinition(ServiceGroup serviceGroup) {
+        if(serviceGroup == null) {
+            return null;
+        }
+
         ServiceGroupDefinition servicegroupDef = new ServiceGroupDefinition();
         servicegroupDef.setName(serviceGroup.getName());
         String[] cartridges = serviceGroup.getCartridges();
@@ -328,7 +334,7 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
         List<ServiceGroupDefinition> groupDefinitions = new ArrayList<ServiceGroupDefinition>(groups.length);
         for (ServiceGroup group : groups) {
             if (group != null) {
-                groupDefinitions.add(populateServiceGroupDefinitionPojo(group));
+                groupDefinitions.add(convertServiceGroupToServiceGroupDefinition(group));
             }
         }
 
@@ -340,10 +346,10 @@ public class DefaultServiceGroupDeployer implements ServiceGroupDeployer {
                 depsDef.setStartupOrders(startupOrdersDef);
             }
 
-            String [] scalingOrders = deps.getScalingOrders();
-            if (scalingOrders != null && scalingOrders[0] != null) {
-                List<String> scalingOrdersDef = Arrays.asList(scalingOrders);
-                depsDef.setStartupOrders(scalingOrdersDef);
+            String [] scalingDependants = deps.getScalingDependants();
+            if (scalingDependants != null && scalingDependants[0] != null) {
+                List<String> scalingDependenciesDef = Arrays.asList(scalingDependants);
+                depsDef.setScalingDependants(scalingDependenciesDef);
             }
 
             depsDef.setTerminationBehaviour(deps.getTerminationBehaviour());

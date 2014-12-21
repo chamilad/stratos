@@ -33,12 +33,13 @@ public class ApplicationsMessageProcessorChain extends MessageProcessorChain {
 
     private GroupInstanceCreatedProcessor groupCreatedMessageProcessor;
     private GroupInstanceActivatedProcessor groupActivatedMessageProcessor;
-    private GroupInstanceInActivateProcessor groupInActivateMessageProcessor;
+    private GroupInstanceInactivateProcessor groupInactivateMessageProcessor;
     private GroupInstanceTerminatedProcessor groupTerminatedProcessor;
     private GroupInstanceTerminatingProcessor groupTerminatingProcessor;
     private ApplicationInstanceCreatedMessageProcessor applicationInstanceCreatedMessageProcessor;
     private ApplicationInstanceActivatedMessageProcessor applicationActivatedMessageProcessor;
     private ApplicationCreatedMessageProcessor applicationCreatedMessageProcessor;
+    private ApplicationDeletedMessageProcessor applicationDeletedMessageProcessor;
     private ApplicationInstanceInactivatedMessageProcessor applicationInactivatedMessageProcessor;
     private ApplicationInstanceTerminatedMessageProcessor applicationTerminatedMessageProcessor;
     private ApplicationInstanceTerminatingMessageProcessor applicationTerminatingMessageProcessor;
@@ -53,8 +54,8 @@ public class ApplicationsMessageProcessorChain extends MessageProcessorChain {
         groupActivatedMessageProcessor = new GroupInstanceActivatedProcessor();
         add(groupActivatedMessageProcessor);
 
-        groupInActivateMessageProcessor = new GroupInstanceInActivateProcessor();
-        add(groupInActivateMessageProcessor);
+        groupInactivateMessageProcessor = new GroupInstanceInactivateProcessor();
+        add(groupInactivateMessageProcessor);
 
         groupTerminatedProcessor = new GroupInstanceTerminatedProcessor();
         add(groupTerminatedProcessor);
@@ -70,6 +71,9 @@ public class ApplicationsMessageProcessorChain extends MessageProcessorChain {
 
         applicationCreatedMessageProcessor = new ApplicationCreatedMessageProcessor();
         add(applicationCreatedMessageProcessor);
+        
+        applicationDeletedMessageProcessor = new ApplicationDeletedMessageProcessor();
+        add(applicationDeletedMessageProcessor);
 
         applicationInactivatedMessageProcessor = new ApplicationInstanceInactivatedMessageProcessor();
         add(applicationInactivatedMessageProcessor);
@@ -93,7 +97,7 @@ public class ApplicationsMessageProcessorChain extends MessageProcessorChain {
         if (eventListener instanceof GroupInstanceCreatedEventListener) {
             groupCreatedMessageProcessor.addEventListener(eventListener);
         } else if (eventListener instanceof GroupInstanceInactivateEventListener) {
-            groupInActivateMessageProcessor.addEventListener(eventListener);
+            groupInactivateMessageProcessor.addEventListener(eventListener);
         } else if (eventListener instanceof GroupInstanceActivatedEventListener) {
             groupActivatedMessageProcessor.addEventListener(eventListener);
         } else if (eventListener instanceof GroupInstanceTerminatingEventListener) {
@@ -104,6 +108,8 @@ public class ApplicationsMessageProcessorChain extends MessageProcessorChain {
             applicationInstanceCreatedMessageProcessor.addEventListener(eventListener);
         } else if (eventListener instanceof ApplicationCreatedEventListener) {
             applicationCreatedMessageProcessor.addEventListener(eventListener);
+        } else if (eventListener instanceof ApplicationDeletedEventListener) {
+            applicationDeletedMessageProcessor.addEventListener(eventListener); 
         } else if (eventListener instanceof ApplicationInstanceActivatedEventListener) {
             applicationActivatedMessageProcessor.addEventListener(eventListener);
         } else if (eventListener instanceof ApplicationInstanceInactivatedEventListener) {

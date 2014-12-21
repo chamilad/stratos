@@ -25,7 +25,7 @@ import org.apache.stratos.autoscaler.context.cluster.AbstractClusterContext;
 import org.apache.stratos.autoscaler.event.publisher.ClusterStatusEventPublisher;
 import org.apache.stratos.autoscaler.exception.InvalidArgumentException;
 import org.apache.stratos.autoscaler.monitor.Monitor;
-import org.apache.stratos.autoscaler.monitor.events.MonitorScalingEvent;
+import org.apache.stratos.autoscaler.monitor.events.ScalingEvent;
 import org.apache.stratos.autoscaler.monitor.events.MonitorStatusEvent;
 import org.apache.stratos.autoscaler.monitor.events.builder.MonitorStatusEventBuilder;
 import org.apache.stratos.autoscaler.rule.AutoscalerRuleEvaluator;
@@ -68,18 +68,23 @@ public abstract class AbstractClusterMonitor extends Monitor implements Runnable
     protected AutoscalerRuleEvaluator autoscalerRuleEvaluator;
     protected String serviceType;
     private AtomicBoolean monitoringStarted;
-    private String clusterId;
+    protected String clusterId;
     private Cluster cluster;
     private int monitoringIntervalMilliseconds;
     private boolean isDestroyed;
+    //has scaling dependents
+    private boolean hasScalingDependents;
+    private boolean groupScalingEnabledSubtree;
 
-    protected AbstractClusterMonitor(Cluster cluster) {
+    protected AbstractClusterMonitor(Cluster cluster, boolean hasScalingDependents, boolean groupScalingEnabledSubtree) {
 
         super();
+        this.groupScalingEnabledSubtree = groupScalingEnabledSubtree;
         this.setCluster(new Cluster(cluster));
         this.serviceType = cluster.getServiceName();
         this.clusterId = cluster.getClusterId();
         this.monitoringStarted = new AtomicBoolean(false);
+        this.hasScalingDependents = hasScalingDependents;
     }
 
     protected abstract void readConfigurations();
@@ -93,8 +98,6 @@ public abstract class AbstractClusterMonitor extends Monitor implements Runnable
     }
 
     protected abstract void monitor();
-
-    public abstract void destroy();
 
     //handle health events
     public abstract void handleAverageLoadAverageEvent(
@@ -202,6 +205,7 @@ public abstract class AbstractClusterMonitor extends Monitor implements Runnable
     }
 
     public void notifyParentMonitor(ClusterStatus status, String instanceId) {
+
         /**
          * notifying the parent monitor about the state change
          * If the cluster in_active and if it is a in_dependent cluster,
@@ -211,6 +215,9 @@ public abstract class AbstractClusterMonitor extends Monitor implements Runnable
         if(instance == null) {
             log.warn("The required cluster [instance] " + instanceId + " not found in the ClusterMonitor");
         } else {
+            if(instance.getStatus() != status) {
+                instance.setStatus(status);
+            }
             /*if (instance.getStatus() == ClusterStatus.Inactive && !this.hasStartupDependents) {
                 log.info("[Cluster] " + clusterId + "is not notifying the parent, " +
                         "since it is identified as the independent unit");
@@ -321,11 +328,6 @@ public abstract class AbstractClusterMonitor extends Monitor implements Runnable
 
     }
 
-    @Override
-    public void onEvent(MonitorScalingEvent scalingEvent) {
-
-    }
-
     public boolean isHasFaultyMember() {
         return hasFaultyMember;
     }
@@ -410,5 +412,12 @@ public abstract class AbstractClusterMonitor extends Monitor implements Runnable
         this.cluster = cluster;
     }
 
+    public boolean hasScalingDependents() {
+        return hasScalingDependents;
+    }
 
+    public boolean groupScalingEnabledSubtree() {
+
+        return groupScalingEnabledSubtree;
+    }
 }

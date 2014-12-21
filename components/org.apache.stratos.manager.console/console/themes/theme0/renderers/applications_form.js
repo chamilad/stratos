@@ -21,70 +21,270 @@
 var render = function (theme, data, meta, require) {
 
     if(data.error.length === 0 ){
-        theme('index', {
-            page_meta: [
-                {
-                    partial: 'index_title',
-                    context: {
-                        page_title: 'Apache Stratos - Application Managment',
-                        page_description: 'Apache Stratos - Application Managment'
-                    }
-                }
-            ],
-            header:[
-                {
-                    partial: 'index_header',
-                    context:{
-                    }
-                }
-            ],
-            sub_header:[
-                {
-                    partial:'index_sub_header',
-                    context:{
-                        breadcrumbPathLevelOne:data.breadcrumbPathLevelOne,
-                        breadcrumbPathLevelTwo:data.breadcrumbPathLevelTwo
-                    }
-                }
-            ],
-            left_menu:[
-            {
-                partial:'index_left_menu',
-                context:{
-                    left_menu:data.left_menu
-                }
-            }
-            ],
-            right_menu_help:[
-                {
-                    partial:'index_right_menu_help',
-                    context:{
 
-                    }
-                }
-            ],
-            content: [
-                {
-                    partial:'applications_form',
-                    context:{
-                        formContext: data.breadcrumbPathLevelTwo,
-                        form_action: data.form_action,
-                        formHtml: data.formHtml,
-                        formData: data.formData,
-                        formDataRaw: data.formDataRaw,
-                        formDataEdit: data.formDataEdit,
-                        isForm: data.isForm,
-                        isEdit:data.isEdit,
-                        formTitle: data.formTitle,
-                        isForm: data.isForm,
-                        content_body: {sections:
-                            data.list_data
+        if(data.applicationView == true) {
+            theme('index', {
+                page_meta: [
+                    {
+                        partial: 'index_title',
+                        context: {
+                            page_title: 'Apache Stratos - Application Managment',
+                            page_description: 'Apache Stratos - Application Managment'
                         }
                     }
-                }
+                ],
+                header: [
+                    {
+                        partial: 'index_header',
+                        context: {
+                        }
+                    }
+                ],
+                sub_header: [
+                    {
+                        partial: 'index_sub_header',
+                        context: {
+                            breadcrumbPathLevelOne: data.breadcrumbPathLevelOne,
+                            breadcrumbPathLevelTwo: data.breadcrumbPathLevelTwo
+                        }
+                    }
+                ],
+                left_menu: [
+                    {
+                        partial: 'index_left_menu',
+                        context: {
+                            left_menu: data.left_menu
+                        }
+                    }
+                ],
+                right_menu_help: [
+                    {
+                        partial: 'index_right_menu_help',
+                        context: {
 
-            ]
-        });
+                        }
+                    }
+                ],
+                content: [
+                    {
+                        partial: 'applications_topology',
+                        context: {
+                            formContext: data.breadcrumbPathLevelTwo,
+                            appName: data.appName,
+                            topology_data: data.topology_data,
+                            form_action: data.form_action,
+                            formHtml: data.formHtml,
+                            formData: data.formData,
+                            formDataRaw: data.formDataRaw,
+                            formDataEdit: data.formDataEdit,
+                            isForm: data.isForm,
+                            isEdit: data.isEdit,
+                            formTitle: data.formTitle,
+                            content_body: {sections: data.list_data
+                            }
+                        }
+                    }
+
+                ]
+            });
+        }else if(data.applicationDeploy == true){
+            theme('index', {
+                page_meta: [
+                    {
+                        partial: 'index_title',
+                        context: {
+                            page_title: 'Apache Stratos - Application Managment',
+                            page_description: 'Apache Stratos - Application Managment'
+                        }
+                    }
+                ],
+                header: [
+                    {
+                        partial: 'index_header',
+                        context: {
+                        }
+                    }
+                ],
+                sub_header: [
+                    {
+                        partial: 'index_sub_header',
+                        context: {
+                            breadcrumbPathLevelOne: data.breadcrumbPathLevelOne,
+                            breadcrumbPathLevelTwo: data.breadcrumbPathLevelTwo
+                        }
+                    }
+                ],
+                left_menu: [
+                    {
+                        partial: 'index_left_menu',
+                        context: {
+                            left_menu: data.left_menu
+                        }
+                    }
+                ],
+                right_menu_help: [
+                    {
+                        partial: 'index_right_menu_help',
+                        context: {
+
+                        }
+                    }
+                ],
+                content: [
+                    {
+                        partial: 'applications_deploy',
+                        context: {
+                            formContext: data.breadcrumbPathLevelTwo,
+                            applicationName: data.applicationName,
+                            applicationJSON: data.applicationJSON,
+                            editorCartridges: data.editorCartridges,
+                            editorGroups:data.editorGroups,
+                            form_action: data.form_action,
+                            formHtml: data.formHtml,
+                            formData: data.formData,
+                            formDataRaw: data.formDataRaw,
+                            formDataEdit: data.formDataEdit,
+                            isForm: data.isForm,
+                            isEdit: data.isEdit,
+                            formTitle: data.formTitle
+
+                        }
+                    }
+
+                ]
+            });
+        }else if(data.applicationEditor == true){
+            theme('index', {
+                page_meta: [
+                    {
+                        partial: 'index_title',
+                        context: {
+                            page_title: 'Apache Stratos - Application Managment',
+                            page_description: 'Apache Stratos - Application Managment'
+                        }
+                    }
+                ],
+                header: [
+                    {
+                        partial: 'index_header',
+                        context: {
+                        }
+                    }
+                ],
+                sub_header: [
+                    {
+                        partial: 'index_sub_header',
+                        context: {
+                            breadcrumbPathLevelOne: data.breadcrumbPathLevelOne,
+                            breadcrumbPathLevelTwo: data.breadcrumbPathLevelTwo
+                        }
+                    }
+                ],
+                left_menu: [
+                    {
+                        partial: 'index_left_menu',
+                        context: {
+                            left_menu: data.left_menu
+                        }
+                    }
+                ],
+                right_menu_help: [
+                    {
+                        partial: 'index_right_menu_help',
+                        context: {
+
+                        }
+                    }
+                ],
+                content: [
+                    {
+                        partial: 'applications_editor',
+                        context: {
+                            formContext: data.breadcrumbPathLevelTwo,
+                            appName: data.appName,
+                            editorCartridges: data.editorCartridges,
+                            editorGroups:data.editorGroups,
+                            form_action: data.form_action,
+                            formHtml: data.formHtml,
+                            formData: data.formData,
+                            formDataRaw: data.formDataRaw,
+                            formDataEdit: data.formDataEdit,
+                            isForm: data.isForm,
+                            isEdit: data.isEdit,
+                            formTitle: data.formTitle
+
+                        }
+                    }
+
+                ]
+            });
+
+        }else{
+            theme('index', {
+                page_meta: [
+                    {
+                        partial: 'index_title',
+                        context: {
+                            page_title: 'Apache Stratos - Application Managment',
+                            page_description: 'Apache Stratos - Application Managment'
+                        }
+                    }
+                ],
+                header:[
+                    {
+                        partial: 'index_header',
+                        context:{
+                        }
+                    }
+                ],
+                sub_header:[
+                    {
+                        partial:'index_sub_header',
+                        context:{
+                            breadcrumbPathLevelOne:data.breadcrumbPathLevelOne,
+                            breadcrumbPathLevelTwo:data.breadcrumbPathLevelTwo
+                        }
+                    }
+                ],
+                left_menu:[
+                    {
+                        partial:'index_left_menu',
+                        context:{
+                            left_menu:data.left_menu
+                        }
+                    }
+                ],
+                right_menu_help:[
+                    {
+                        partial:'index_right_menu_help',
+                        context:{
+
+                        }
+                    }
+                ],
+                content: [
+                    {
+                        partial:'applications_form',
+                        context:{
+                            formContext: data.breadcrumbPathLevelTwo,
+                            form_action: data.form_action,
+                            formHtml: data.formHtml,
+                            formData: data.formData,
+                            formDataRaw: data.formDataRaw,
+                            formDataEdit: data.formDataEdit,
+                            formtype:data.formtype,
+                            isForm: data.isForm,
+                            isEdit:data.isEdit,
+                            formTitle: data.formTitle,
+                            content_body: {sections:
+                                data.list_data
+                            }
+                        }
+                    }
+
+                ]
+            });
+        }
 
     }else{
 

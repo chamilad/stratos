@@ -43,10 +43,11 @@ public class MockMemberEventPublisher {
         InstanceStartedEvent event = new InstanceStartedEvent(
                 mockMemberContext.getServiceName(),
                 mockMemberContext.getClusterId(),
-                mockMemberContext.getNetworkPartitionId(),
-                mockMemberContext.getPartitionId(),
                 mockMemberContext.getMemberId(),
-                mockMemberContext.getInstanceId());
+                mockMemberContext.getInstanceId(),
+                mockMemberContext.getClusterInstanceId(),
+                mockMemberContext.getNetworkPartitionId(),
+                mockMemberContext.getPartitionId());
         String topic = Util.getMessageTopicName(event);
         EventPublisher eventPublisher = EventPublisherPool
                 .getPublisher(topic);
@@ -63,15 +64,15 @@ public class MockMemberEventPublisher {
         InstanceActivatedEvent event = new InstanceActivatedEvent(
                 mockMemberContext.getServiceName(),
                 mockMemberContext.getClusterId(),
-                mockMemberContext.getNetworkPartitionId(),
-                mockMemberContext.getPartitionId(),
                 mockMemberContext.getMemberId(),
-                mockMemberContext.getInstanceId());
+                mockMemberContext.getInstanceId(),
+                mockMemberContext.getClusterInstanceId(),
+                mockMemberContext.getNetworkPartitionId(),
+                mockMemberContext.getPartitionId());
 
         // Event publisher connection will
         String topic = Util.getMessageTopicName(event);
-        EventPublisher eventPublisher = EventPublisherPool
-                .getPublisher(topic);
+        EventPublisher eventPublisher = EventPublisherPool.getPublisher(topic);
         eventPublisher.publish(event);
         if (log.isInfoEnabled()) {
             log.info("Instance activated event published");
@@ -80,43 +81,47 @@ public class MockMemberEventPublisher {
 
     public static void publishInstanceReadyToShutdownEvent(MockMemberContext mockMemberContext) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing instance activated event");
+            log.info(String.format("Publishing instance ready to shutdown event: [member-id] %s",
+                    mockMemberContext.getMemberId()));
         }
         InstanceReadyToShutdownEvent event = new InstanceReadyToShutdownEvent(
                 mockMemberContext.getServiceName(),
                 mockMemberContext.getClusterId(),
-                mockMemberContext.getNetworkPartitionId(),
-                mockMemberContext.getPartitionId(),
                 mockMemberContext.getMemberId(),
-                mockMemberContext.getInstanceId());
+                mockMemberContext.getInstanceId(),
+                mockMemberContext.getClusterInstanceId(),
+                mockMemberContext.getNetworkPartitionId(),
+                mockMemberContext.getPartitionId());
         String topic = Util.getMessageTopicName(event);
         EventPublisher eventPublisher = EventPublisherPool
                 .getPublisher(topic);
         eventPublisher.publish(event);
         if (log.isInfoEnabled()) {
-            log.info("Instance ReadyToShutDown event published");
+            log.info(String.format("Instance ready to shutDown event published: [member-id] %s",
+                    mockMemberContext.getMemberId()));
         }
-
     }
 
     public static void publishMaintenanceModeEvent(MockMemberContext mockMemberContext) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing instance maintenance mode event");
+            log.info(String.format("Publishing instance maintenance mode event: [member-id] %s",
+                    mockMemberContext.getMemberId()));
         }
         InstanceMaintenanceModeEvent event = new InstanceMaintenanceModeEvent(
                 mockMemberContext.getServiceName(),
                 mockMemberContext.getClusterId(),
-                mockMemberContext.getNetworkPartitionId(),
-                mockMemberContext.getPartitionId(),
                 mockMemberContext.getMemberId(),
-                mockMemberContext.getInstanceId());
+                mockMemberContext.getInstanceId(),
+                mockMemberContext.getClusterInstanceId(),
+                mockMemberContext.getNetworkPartitionId(),
+                mockMemberContext.getPartitionId());
         String topic = Util.getMessageTopicName(event);
-        EventPublisher eventPublisher = EventPublisherPool
-                .getPublisher(topic);
+        EventPublisher eventPublisher = EventPublisherPool.getPublisher(topic);
         eventPublisher.publish(event);
+
         if (log.isInfoEnabled()) {
-            log.info("Instance Maintenance mode event published");
+            log.info(String.format("Instance Maintenance mode event published: [member-id] %s",
+                    mockMemberContext.getMemberId()));
         }
     }
-
 }

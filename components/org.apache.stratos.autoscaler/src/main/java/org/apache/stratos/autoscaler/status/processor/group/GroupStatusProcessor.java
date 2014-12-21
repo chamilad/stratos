@@ -18,6 +18,8 @@
  */
 package org.apache.stratos.autoscaler.status.processor.group;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.autoscaler.status.processor.StatusProcessor;
 import org.apache.stratos.messaging.domain.applications.ClusterDataHolder;
 import org.apache.stratos.messaging.domain.applications.Group;
@@ -37,6 +39,8 @@ import java.util.Map;
  * This will be used to process the group status
  */
 public abstract class GroupStatusProcessor extends StatusProcessor {
+    private static final Log log = LogFactory.getLog(GroupStatusProcessor.class);
+
 
     /**
      * Message processing and delegating logic.
@@ -66,19 +70,26 @@ public abstract class GroupStatusProcessor extends StatusProcessor {
             } else {
                 //Checking the minimum of the group instances to be satisfied
                 List<Instance> contexts = group.getInstanceContextsWithParentId(instanceId);
-                int minGroupInstances = group.getGroupMinInstances();
-                int sameStateInstances = 0;
-                for(Instance context1 : contexts) {
-                   if(((GroupInstance)context1).getStatus().equals(status)) {
-                       sameStateInstances++;
-                   }
-                }
-                if(sameStateInstances >= minGroupInstances) {
+                //if no instances found and requested status is terminated,
+                // then considering this group as terminated
+                if(context == null && contexts.isEmpty() && status == GroupStatus.Terminated) {
                     groupStat = true;
                 } else {
-                    groupStat = false;
-                    return groupStat;
+                    int minGroupInstances = group.getGroupMinInstances();
+                    int sameStateInstances = 0;
+                    for(Instance context1 : contexts) {
+                        if(((GroupInstance)context1).getStatus().equals(status)) {
+                            sameStateInstances++;
+                        }
+                    }
+                    if(sameStateInstances >= minGroupInstances) {
+                        groupStat = true;
+                    } else {
+                        groupStat = false;
+                        return groupStat;
+                    }
                 }
+
 
             }
         }
@@ -103,11 +114,25 @@ public abstract class GroupStatusProcessor extends StatusProcessor {
                 Service service = TopologyManager.getTopology().getService(serviceName);
                 Cluster cluster = service.getCluster(clusterId);
                 ClusterInstance context = cluster.getInstanceContexts(instanceId);
-                if (context.getStatus() == status) {
-                    clusterStat = true;
+                if (context != null) {
+                    if(log.isDebugEnabled()) {
+                        log.debug("Checking the status of cluster " + clusterId + " instance status is: " +
+                                context.getStatus().toString());
+                    }
+                    if(context.getStatus() == status) {
+                        clusterStat = true;
+                    } else {
+                        clusterStat = false;
+                        return clusterStat;
+                    }
                 } else {
-                    clusterStat = false;
-                    return clusterStat;
+                    //Checking whether non-existent context is for a terminated state change
+                    if(status == ClusterStatus.Terminated) {
+                        clusterStat = true;
+                    } else {
+                        clusterStat = false;
+                        return clusterStat;
+                    }
                 }
             } finally {
                 TopologyManager.releaseReadLockForCluster(serviceName, clusterId);

@@ -116,21 +116,25 @@ public class ClusterInstanceTerminatedProcessor extends MessageProcessor {
             if (log.isDebugEnabled()) {
                 log.debug(String.format("Cluster not exists in service: [service] %s [cluster] %s", event.getServiceName(),
                         event.getClusterId()));
+                return false;
             }
         } else {
             // Apply changes to the topology
             ClusterInstance context = cluster.getInstanceContexts(event.getInstanceId());
             if(context == null) {
-                log.warn("Cluster Instance Context is not found for [cluster] " +
-                        event.getClusterId() + " [instance-id] " +
-                        event.getInstanceId());
+                if(log.isDebugEnabled()) {
+                    log.warn("Cluster Instance Context is already removed for [cluster] " +
+                            event.getClusterId() + " [instance-id] " +
+                            event.getInstanceId());
+                }
+            } else {
+                ClusterStatus status = ClusterStatus.Terminated;
+                if (!context.isStateTransitionValid(status)) {
+                    log.error("Invalid State Transition from " + context.getStatus() + " to " + status);
+                }
+                context.setStatus(status);
+                cluster.removeInstanceContext(event.getInstanceId());
             }
-            ClusterStatus status = ClusterStatus.Terminated;
-            if (!context.isStateTransitionValid(status)) {
-                log.error("Invalid State Transition from " + context.getStatus() + " to " + status);
-            }
-            context.setStatus(status);
-
         }
 
         // Notify event listeners

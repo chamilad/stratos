@@ -22,16 +22,18 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.autoscaler.applications.ApplicationHolder;
 import org.apache.stratos.autoscaler.applications.topic.ApplicationBuilder;
+import org.apache.stratos.autoscaler.context.InstanceContext;
 import org.apache.stratos.autoscaler.context.application.ApplicationInstanceContext;
 import org.apache.stratos.autoscaler.context.partition.network.ApplicationLevelNetworkPartitionContext;
+import org.apache.stratos.autoscaler.context.partition.network.NetworkPartitionContext;
 import org.apache.stratos.autoscaler.exception.application.DependencyBuilderException;
 import org.apache.stratos.autoscaler.exception.application.MonitorNotFoundException;
 import org.apache.stratos.autoscaler.exception.application.TopologyInConsistentException;
 import org.apache.stratos.autoscaler.exception.policy.PolicyValidationException;
 import org.apache.stratos.autoscaler.monitor.Monitor;
 import org.apache.stratos.autoscaler.monitor.events.ApplicationStatusEvent;
-import org.apache.stratos.autoscaler.monitor.events.MonitorScalingEvent;
 import org.apache.stratos.autoscaler.monitor.events.MonitorStatusEvent;
+import org.apache.stratos.autoscaler.monitor.events.ScalingEvent;
 import org.apache.stratos.autoscaler.monitor.events.builder.MonitorStatusEventBuilder;
 import org.apache.stratos.autoscaler.pojo.policy.PolicyManager;
 import org.apache.stratos.autoscaler.pojo.policy.deployment.DeploymentPolicy;
@@ -52,8 +54,6 @@ import java.util.*;
 public class ApplicationMonitor extends ParentComponentMonitor {
     private static final Log log = LogFactory.getLog(ApplicationMonitor.class);
 
-    //network partition contexts
-    private Map<String, ApplicationLevelNetworkPartitionContext> networkPartitionCtxts;
     //Flag to set whether application is terminating
     private boolean isTerminating;
 
@@ -63,8 +63,75 @@ public class ApplicationMonitor extends ParentComponentMonitor {
         super(application);
         //setting the appId for the application
         this.appId = application.getUniqueIdentifier();
-        networkPartitionCtxts = new HashMap<String, ApplicationLevelNetworkPartitionContext>();
     }
+
+    @Override
+    public void run() {
+        try {
+            if (log.isDebugEnabled()) {
+                log.debug("Application monitor is running : " + this.toString());
+            }
+            monitor();
+        } catch (Exception e) {
+            log.error("Application monitor failed : " + this.toString(), e);
+        }
+    }
+
+    public synchronized void monitor() {
+        final Collection<NetworkPartitionContext> networkPartitionContexts =
+                this.networkPartitionCtxts.values();
+
+        Runnable monitoringRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (log.isDebugEnabled()) {
+                    log.debug("Application monitor is running====== : " + this.toString());
+                }
+                for (NetworkPartitionContext networkPartitionContext : networkPartitionContexts) {
+
+                    for (InstanceContext instanceContext : networkPartitionContext.
+                            getInstanceIdToInstanceContextMap().values()) {
+                        ApplicationInstance instance = (ApplicationInstance) instanceIdToInstanceMap.
+                                get(instanceContext.getId());
+                        //stopping the monitoring when the group is inactive/Terminating/Terminated
+                        if (instance.getStatus().getCode() <= GroupStatus.Active.getCode()) {
+                            //Gives priority to scaling max out rather than dependency scaling
+                            if (!instanceContext.getIdToScalingOverMaxEvent().isEmpty()) {
+                               if(networkPartitionContext.getPendingInstancesCount() == 0) {
+                                   //handling the application bursting only when there are no pending instances found
+                                   try {
+                                       if (log.isInfoEnabled()) {
+                                           log.info("Handling application busting, " +
+                                                   "since resources are exhausted in " +
+                                                   "this application instance ");
+                                       }
+                                       createInstanceOnBurstingForApplication();
+                                   } catch (TopologyInConsistentException e) {
+                                       log.error("Error while bursting the application", e);
+                                   } catch (PolicyValidationException e) {
+                                       log.error("Error while bursting the application", e);
+                                   } catch (MonitorNotFoundException e) {
+                                       log.error("Error while bursting the application", e);
+                                   }
+                               } else {
+                                   if(log.isDebugEnabled()) {
+                                       log.debug("Pending Application instance found. " +
+                                               "Hence waiting for it to become active");
+                                   }
+                               }
+
+                            } else {
+                                handleDependentScaling(instanceContext, networkPartitionContext);
+
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        monitoringRunnable.run();
+    }
+
 
     /**
      * Find the group monitor by traversing recursively in the hierarchical monitors.
@@ -74,7 +141,7 @@ public class ApplicationMonitor extends ParentComponentMonitor {
      */
     public Monitor findGroupMonitorWithId(String groupId) {
         //searching within active monitors
-        return findGroupMonitor(groupId, aliasToActiveMonitorsMap.values());
+        return findGroupMonitor(groupId, aliasToActiveMonitorsMap);
     }
 
 
@@ -85,16 +152,17 @@ public class ApplicationMonitor extends ParentComponentMonitor {
      * @param monitors the group monitors found in the app monitor
      * @return the found GroupMonitor
      */
-    private Monitor findGroupMonitor(String id, Collection<Monitor> monitors) {
-        for (Monitor monitor : monitors) {
-            // check if alias is equal, if so, return
-            if (monitor.getId().equals(id)) {
-                return monitor;
-            } else {
-                // check if this Group has nested sub Groups. If so, traverse them as well
-                if (monitor instanceof ParentComponentMonitor) {
-                    return findGroupMonitor(id, ((ParentComponentMonitor) monitor).
-                            getAliasToActiveMonitorsMap().values());
+    private Monitor findGroupMonitor(String id, Map<String, Monitor> monitors) {
+        if (monitors.containsKey(id)) {
+            return monitors.get(id);
+        }
+
+        for (Monitor monitor : monitors.values()) {
+            if (monitor instanceof ParentComponentMonitor) {
+                Monitor monitor1 = findGroupMonitor(id, ((ParentComponentMonitor) monitor).
+                        getAliasToActiveMonitorsMap());
+                if (monitor1 != null) {
+                    return monitor1;
                 }
             }
         }
@@ -107,7 +175,16 @@ public class ApplicationMonitor extends ParentComponentMonitor {
      * @param status the status
      */
     public void setStatus(ApplicationStatus status, String instanceId) {
-        ((ApplicationInstance) this.instanceIdToInstanceMap.get(instanceId)).setStatus(status);
+        ApplicationInstance applicationInstance = (ApplicationInstance) this.instanceIdToInstanceMap.
+                get(instanceId);
+
+        if (applicationInstance == null) {
+            log.warn("The required application [instance] " + instanceId + " not found in the AppMonitor");
+        } else {
+            if (applicationInstance.getStatus() != status) {
+                applicationInstance.setStatus(status);
+            }
+        }
 
         //notify the children about the state change
         try {
@@ -120,36 +197,33 @@ public class ApplicationMonitor extends ParentComponentMonitor {
 
     @Override
     public void onChildStatusEvent(MonitorStatusEvent statusEvent) {
-        String id = statusEvent.getId();
+        String childId = statusEvent.getId();
         String instanceId = statusEvent.getInstanceId();
         LifeCycleState status1 = statusEvent.getStatus();
         //Events coming from parent are In_Active(in faulty detection), Scaling events, termination
         if (status1 == ClusterStatus.Active || status1 == GroupStatus.Active) {
-            onChildActivatedEvent(id, instanceId);
+            onChildActivatedEvent(childId, instanceId);
 
         } else if (status1 == ClusterStatus.Inactive || status1 == GroupStatus.Inactive) {
-            this.markMonitorAsInactive(id);
-            onChildInactiveEvent(id, instanceId);
+            this.markInstanceAsInactive(childId, instanceId);
+            onChildInactiveEvent(childId, instanceId);
 
         } else if (status1 == ClusterStatus.Terminating || status1 == GroupStatus.Terminating) {
             //mark the child monitor as inActive in the map
-            this.markMonitorAsTerminating(id);
+            markInstanceAsTerminating(childId, instanceId);
 
         } else if (status1 == ClusterStatus.Terminated || status1 == GroupStatus.Terminated) {
             //Check whether all dependent goes Terminated and then start them in parallel.
-            if (this.terminatingMonitorsList.contains(id)) {
-                this.terminatingMonitorsList.remove(id);
-                this.aliasToActiveMonitorsMap.remove(id);
-            } else {
-                log.warn("[monitor] " + id + " cannot be found in the inActive monitors list");
-            }
+            removeInstanceFromFromInactiveMap(childId, instanceId);
+            removeInstanceFromFromTerminatingMap(childId, instanceId);
+
             ApplicationInstance instance = (ApplicationInstance) instanceIdToInstanceMap.get(instanceId);
             if (instance != null) {
-                if (instance.getStatus() == ApplicationStatus.Terminating) {
+                if (this.isTerminating()) {
                     ServiceReferenceHolder.getInstance().getGroupStatusProcessorChain().process(this.id,
                             appId, instanceId);
                 } else {
-                    onChildTerminatedEvent(id, instanceId);
+                    onChildTerminatedEvent(childId, instanceId);
                 }
             } else {
                 log.warn("The required instance cannot be found in the the [GroupMonitor] " +
@@ -163,18 +237,9 @@ public class ApplicationMonitor extends ParentComponentMonitor {
         // nothing to do
     }
 
-    @Override
-    public void onChildScalingEvent(MonitorScalingEvent scalingEvent) {
-
-    }
 
     @Override
-    public void onParentScalingEvent(MonitorScalingEvent scalingEvent) {
-
-    }
-
-    @Override
-    public void onEvent(MonitorScalingEvent scalingEvent) {
+    public void onParentScalingEvent(ScalingEvent scalingEvent) {
 
     }
 
@@ -244,6 +309,7 @@ public class ApplicationMonitor extends ParentComponentMonitor {
         instanceContext = new ApplicationInstanceContext(instanceId);
         //adding the created App InstanceContext to ApplicationLevelNetworkPartitionContext
         context.addInstanceContext(instanceContext);
+        context.addPendingInstance(instanceContext);
 
         //adding to instance map
         this.instanceIdToInstanceMap.put(instanceId, instance);
@@ -264,7 +330,7 @@ public class ApplicationMonitor extends ParentComponentMonitor {
         boolean burstNPFound = false;
         DeploymentPolicy deploymentPolicy = getDeploymentPolicy(application);
         String instanceId = null;
-        //Find out the inActive network partition
+        //Find out the inactive network partition
         if (deploymentPolicy == null) {
             //FIXME for docker with deployment policy
             ApplicationInstance appInstance = createApplicationInstance(application, null);
@@ -324,22 +390,10 @@ public class ApplicationMonitor extends ParentComponentMonitor {
     }
 
     private ApplicationInstance createApplicationInstance(Application application, String networkPartitionId) {
-        String instanceId = this.generateInstanceId(application);
+        //String instanceId = this.generateInstanceId(application);
         ApplicationInstance instance = ApplicationBuilder.handleApplicationInstanceCreatedEvent(
-                appId, instanceId, networkPartitionId);
+                appId, networkPartitionId);
         return instance;
-    }
-
-    public Map<String, ApplicationLevelNetworkPartitionContext> getApplicationLevelNetworkPartitionCtxts() {
-        return networkPartitionCtxts;
-    }
-
-    public void setApplicationLevelNetworkPartitionCtxts(Map<String, ApplicationLevelNetworkPartitionContext> networkPartitionCtxts) {
-        this.networkPartitionCtxts = networkPartitionCtxts;
-    }
-
-    public void addApplicationLevelNetworkPartitionContext(ApplicationLevelNetworkPartitionContext applicationLevelNetworkPartitionContext) {
-        this.networkPartitionCtxts.put(applicationLevelNetworkPartitionContext.getId(), applicationLevelNetworkPartitionContext);
     }
 
     public boolean isTerminating() {
@@ -349,4 +403,16 @@ public class ApplicationMonitor extends ParentComponentMonitor {
     public void setTerminating(boolean isTerminating) {
         this.isTerminating = isTerminating;
     }
+
+    @Override
+    public void destroy() {
+        //TODO to wipe out the drools
+    }
+
+    @Override
+    public boolean createInstanceOnDemand(String instanceId) {
+        return false;
+
+    }
+
 }

@@ -26,12 +26,16 @@ public class ScalingDependentList implements Serializable {
 
     private List<String> scalingDependentListComponents;
 
-    public ScalingDependentList(List<String> scalingOrderList) {
-        this.scalingDependentListComponents = scalingOrderList;
+    public ScalingDependentList(List<String> scalingDependentList) {
+        this.scalingDependentListComponents = scalingDependentList;
     }
 
     public List<String> getScalingDependentListComponents() {
         return scalingDependentListComponents;
+    }
+
+    public boolean isScalingDependent(String id) {
+        return scalingDependentListComponents.contains(id);
     }
 
     public void setScalingDependentListComponents(List<String> scalingDependentListComponents) {

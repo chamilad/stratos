@@ -64,12 +64,18 @@ public class ClusterInstanceContext extends InstanceContext {
     private int currentPartitionIndex;
 
     private String networkPartitionId;
+    private String clusterId;
+
+    private boolean hasScalingDependants;
+    private boolean groupScalingEnabledSubtree;
 
     public ClusterInstanceContext(String clusterInstanceId, String partitionAlgo,
-                                  int min, int max, String networkPartitionId) {
+                                  int min, int max, String networkPartitionId, String clusterId,
+                                  boolean hasScalingDependants, boolean groupScalingEnabledSubtree) {
 
         super(clusterInstanceId);
         this.networkPartitionId = networkPartitionId;
+        this.clusterId = clusterId;
         this.minInstanceCount = min;
         this.maxInstanceCount = max;
         partitionCtxts = new ArrayList<ClusterLevelPartitionContext>();
@@ -80,8 +86,8 @@ public class ClusterInstanceContext extends InstanceContext {
         memoryConsumption = new MemoryConsumption();
         requiredInstanceCountBasedOnStats = minInstanceCount;
         requiredInstanceCountBasedOnDependencies = minInstanceCount;
-
-
+        this.hasScalingDependants = hasScalingDependants;
+        this.groupScalingEnabledSubtree = groupScalingEnabledSubtree;
     }
 
     public List<ClusterLevelPartitionContext> getPartitionCtxts() {
@@ -136,6 +142,16 @@ public class ClusterInstanceContext extends InstanceContext {
             }
         }
         return null;
+    }
+
+    public int getActiveMemberCount() {
+
+        int activeMemberCount = 0;
+        for (ClusterLevelPartitionContext partitionContext : partitionCtxts) {
+
+            activeMemberCount += partitionContext.getActiveMemberCount();
+        }
+        return activeMemberCount;
     }
 
     public int getNonTerminatedMemberCount() {
@@ -446,4 +462,19 @@ public class ClusterInstanceContext extends InstanceContext {
         return activeMembers;
     }
 
+    public boolean isAverageRequestServedPerInstanceReset() {
+        return averageRequestServedPerInstanceReset;
+    }
+
+	public boolean hasScalingDependants() {
+		return hasScalingDependants;
+	}
+
+    public String getClusterId() {
+        return clusterId;
+    }
+
+    public boolean isInGroupScalingEnabledSubtree() {
+        return groupScalingEnabledSubtree;
+    }
 }

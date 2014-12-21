@@ -34,7 +34,6 @@ import java.util.Map;
  */
 public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext implements Serializable {
     private static final Log log = LogFactory.getLog(GroupLevelNetworkPartitionContext.class);
-    private final String id;
     private int scaleDownRequestsCount = 0;
     private float averageRequestsServedPerInstance;
 
@@ -50,40 +49,26 @@ public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext i
     //details required for partition selection algorithms
     private int currentPartitionIndex;
 
-    //group instances kept inside a partition
-    private Map<String, GroupInstanceContext> instanceIdToInstanceContextMap;
+
 
     public GroupLevelNetworkPartitionContext(String id, String partitionAlgo) {
-        this.id = id;
+        super(id);
         this.partitionAlgorithm = partitionAlgo;
         partitionContexts = new ArrayList<GroupLevelPartitionContext>();
         requiredInstanceCountBasedOnStats = minInstanceCount;
         requiredInstanceCountBasedOnDependencies = minInstanceCount;
-        instanceIdToInstanceContextMap = new HashMap<String, GroupInstanceContext>();
 
 
     }
 
     public GroupLevelNetworkPartitionContext(String id) {
-        this.id = id;
+        super(id);
         partitionContexts = new ArrayList<GroupLevelPartitionContext>();
         requiredInstanceCountBasedOnStats = minInstanceCount;
         requiredInstanceCountBasedOnDependencies = minInstanceCount;
-        instanceIdToInstanceContextMap = new HashMap<String, GroupInstanceContext>();
     }
 
-    public Map<String, GroupInstanceContext> getInstanceIdToInstanceContextMap() {
-        return instanceIdToInstanceContextMap;
-    }
 
-    public void setInstanceIdToInstanceContextMap(Map<String, GroupInstanceContext> instanceIdToInstanceContextMap) {
-        this.instanceIdToInstanceContextMap = instanceIdToInstanceContextMap;
-    }
-
-    public void addInstanceContext(GroupInstanceContext context) {
-        this.instanceIdToInstanceContextMap.put(context.getId(), context);
-
-    }
 
     public int getMinInstanceCount() {
         return minInstanceCount;
@@ -105,7 +90,7 @@ public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext i
 
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((this.id == null) ? 0 : this.id.hashCode());
+        result = prime * result + ((super.getId() == null) ? 0 : super.getId().hashCode());
         return result;
 
     }
@@ -122,11 +107,11 @@ public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext i
             return false;
         }
         final GroupLevelNetworkPartitionContext other = (GroupLevelNetworkPartitionContext) obj;
-        if (this.id == null) {
-            if (other.id != null) {
+        if (super.getId() == null) {
+            if (super.getId() != null) {
                 return false;
             }
-        } else if (!this.id.equals(other.id)) {
+        } else if (!super.getId().equals(super.getId())) {
             return false;
         }
         return true;
@@ -134,7 +119,7 @@ public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext i
 
     @Override
     public String toString() {
-        return "NetworkPartitionContext [id=" + id + "partitionAlgorithm=" + partitionAlgorithm + ", minInstanceCount=" +
+        return "NetworkPartitionContext [id=" + super.getId() + "partitionAlgorithm=" + partitionAlgorithm + ", minInstanceCount=" +
                 minInstanceCount + ", maxInstanceCount=" + maxInstanceCount + "]";
     }
 
@@ -147,7 +132,7 @@ public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext i
     }
 
     public String getId() {
-        return id;
+        return super.getId();
     }
 
 
@@ -230,6 +215,8 @@ public class GroupLevelNetworkPartitionContext extends NetworkPartitionContext i
         }
         return null;
     }
+
+
 
 
 }

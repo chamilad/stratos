@@ -66,8 +66,9 @@ public class GroupStatusTerminatingProcessor extends GroupStatusProcessor {
         Map<String, Group> groups;
         Map<String, ClusterDataHolder> clusterData;
 
-        if (log.isInfoEnabled()) {
-            log.info("StatusChecker calculating the status for the group [ " + idOfComponent + " ]");
+        if (log.isDebugEnabled()) {
+            log.debug("StatusChecker calculating the terminating status for the group " +
+                    "[ " + idOfComponent + " ]" + " for the instance " + " [ " + instanceId + " ]");
         }
 
         try {
@@ -85,27 +86,24 @@ public class GroupStatusTerminatingProcessor extends GroupStatusProcessor {
             groups = component.getAliasToGroupMap();
             clusterData = component.getClusterDataMap();
 
-            if (component.isGroupScalingEnabled()) {
-
-            } else {
-                if (groups.isEmpty() && getAllClusterInSameState(clusterData, ClusterStatus.Terminating, instanceId) ||
-                        clusterData.isEmpty() && getAllGroupInSameState(groups, GroupStatus.Terminating, instanceId) ||
-                        getAllClusterInSameState(clusterData, ClusterStatus.Terminating, instanceId) &&
-                                getAllGroupInSameState(groups, GroupStatus.Terminating, instanceId)) {
-                    //send the terminated event
-                    if (component instanceof Application) {
-                        log.info("sending app terminated: " + appId);
-                        ApplicationBuilder.handleApplicationInstanceTerminatedEvent(appId, instanceId);
-                        return true;
-                    } else if (component instanceof Group) {
-                        //send activation to the parent
-                        if (((Group) component).getStatus(null) != GroupStatus.Terminated) {
-                            log.info("sending group terminated : " + component.getUniqueIdentifier());
-                            ApplicationBuilder.handleGroupTerminatingEvent(appId,
-                                    component.getUniqueIdentifier(), instanceId);
-                            return true;
-                        }
-                    }
+            if (groups.isEmpty() && getAllClusterInSameState(clusterData, ClusterStatus.Terminating, instanceId) ||
+                    clusterData.isEmpty() && getAllGroupInSameState(groups, GroupStatus.Terminating, instanceId) ||
+                    getAllClusterInSameState(clusterData, ClusterStatus.Terminating, instanceId) &&
+                            getAllGroupInSameState(groups, GroupStatus.Terminating, instanceId)) {
+                //send the terminated event
+                if (component instanceof Application) {
+                    log.info("sending app terminating for [application] " + appId + " and for " +
+                            " [instance] " + instanceId);
+                    ApplicationBuilder.handleApplicationInstanceTerminatedEvent(appId, instanceId);
+                    return true;
+                } else if (component instanceof Group) {
+                    //send activation to the parent
+                    log.info("sending group terminating for [group] " +
+                            component.getUniqueIdentifier() + " and for [instance] "
+                            + instanceId);
+                    ApplicationBuilder.handleGroupTerminatingEvent(appId,
+                            component.getUniqueIdentifier(), instanceId);
+                    return true;
                 }
             }
         } finally {

@@ -30,6 +30,11 @@ public class ApplicationsEventPublisher {
 
         publishEvent(new ApplicationCreatedEvent(application));
     }
+    
+    public static void sendApplicationDeletedEvent (String appId, Set<ClusterDataHolder> clusterData) {
+    	
+    	publishEvent(new ApplicationDeletedEvent(appId, clusterData));
+    }
 
     public static void sendApplicationInstanceCreatedEvent(String appId,
                                                            ApplicationInstance applicationInstance) {
@@ -40,7 +45,7 @@ public class ApplicationsEventPublisher {
                                                      GroupInstance groupInstance) {
         if (log.isInfoEnabled()) {
             log.info("Publishing Group created event for [application]: " + appId +
-                    " [group]: " + groupId);
+                    " [group]: " + groupId + " [instance]:" + groupInstance.getInstanceId());
         }
         GroupInstanceCreatedEvent groupCreatedEvent =
                 new GroupInstanceCreatedEvent(appId, groupId, groupInstance);
@@ -51,7 +56,7 @@ public class ApplicationsEventPublisher {
     public static void sendGroupInstanceActivatedEvent(String appId, String groupId, String instanceId) {
         if (log.isInfoEnabled()) {
             log.info("Publishing Group activated event for [application]: " + appId +
-                    " [group]: " + groupId);
+                    " [group]: " + groupId + " [instance]:" + instanceId);
         }
         GroupInstanceActivatedEvent groupActivatedEvent =
                 new GroupInstanceActivatedEvent(appId, groupId, instanceId);
@@ -59,10 +64,10 @@ public class ApplicationsEventPublisher {
         publishEvent(groupActivatedEvent);
     }
 
-    public static void sendGroupInstanceInActivateEvent(String appId, String groupId, String instanceId) {
+    public static void sendGroupInstanceInactivateEvent(String appId, String groupId, String instanceId) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing Group in-activate event for [application]: " + appId +
-                    " [group]: " + groupId);
+            log.info("Publishing Group inactivate event for [application]: " + appId +
+                    " [group]: " + groupId + " [instance]:" + instanceId);
         }
         GroupInstanceInactivatedEvent groupInactivateEvent = new GroupInstanceInactivatedEvent(appId, groupId, instanceId);
 
@@ -72,7 +77,7 @@ public class ApplicationsEventPublisher {
     public static void sendGroupInstanceTerminatingEvent(String appId, String groupId, String instanceId) {
         if (log.isInfoEnabled()) {
             log.info("Publishing Group terminating event for [application]: " + appId +
-                    " [group]: " + groupId);
+                    " [group]: " + groupId + " [instance]:" + instanceId);
         }
         GroupInstanceTerminatingEvent groupInTerminatingEvent =
                 new GroupInstanceTerminatingEvent(appId, groupId, instanceId);
@@ -83,7 +88,7 @@ public class ApplicationsEventPublisher {
 
         if (log.isInfoEnabled()) {
             log.info("Publishing Group terminated event for [application]: " + appId +
-                    " [group]: " + groupId);
+                    " [group]: " + groupId + " [instance]:" + instanceId);
         }
         GroupInstanceTerminatedEvent groupInTerminatedEvent =
                 new GroupInstanceTerminatedEvent(appId, groupId, instanceId);
@@ -92,7 +97,8 @@ public class ApplicationsEventPublisher {
 
     public static void sendApplicationInstanceActivatedEvent(String appId, String instanceId) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing Application Active event for [application]: " + appId);
+            log.info("Publishing Application Active event for [application]: " + appId
+                    + " [instance]:" + instanceId);
         }
         ApplicationInstanceActivatedEvent applicationActivatedEvent =
                 new ApplicationInstanceActivatedEvent(appId, instanceId);
@@ -102,29 +108,32 @@ public class ApplicationsEventPublisher {
 
     public static void sendApplicationInstanceInactivatedEvent(String appId, String instanceId) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing Application In-activated event for [application]: " + appId);
+            log.info("Publishing Application Inactivated event for [application]: " + appId +
+                    " [instance]:" + instanceId);
         }
-        ApplicationInstanceInactivatedEvent applicationInActivatedEvent =
+        ApplicationInstanceInactivatedEvent applicationInactivatedEvent =
                 new ApplicationInstanceInactivatedEvent(appId, instanceId);
-        publishEvent(applicationInActivatedEvent);
+        publishEvent(applicationInactivatedEvent);
 
     }
 
     public static void sendApplicationInstanceTerminatingEvent(String appId, String instanceId) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing Application terminating event for [application]: " + appId);
+            log.info("Publishing Application terminating event for [application]: " + appId +
+                    " [instance]:" + instanceId);
         }
         ApplicationInstanceTerminatingEvent applicationTerminatingEvent =
                 new ApplicationInstanceTerminatingEvent(appId, instanceId);
         publishEvent(applicationTerminatingEvent);
     }
 
-    public static void sendApplicationInstanceTerminatedEvent(String appId, Set<ClusterDataHolder> clusterData) {
+    public static void sendApplicationInstanceTerminatedEvent(String appId, String instanceId) {
         if (log.isInfoEnabled()) {
-            log.info("Publishing Application terminated event for [application]: " + appId);
+            log.info("Publishing Application terminated event for [application]: " + appId +
+                    " [instance]:" + instanceId);
         }
         ApplicationInstanceTerminatedEvent applicationTerminatedEvent =
-                new ApplicationInstanceTerminatedEvent(appId, clusterData);
+                new ApplicationInstanceTerminatedEvent(appId, instanceId);
         publishEvent(applicationTerminatedEvent);
     }
 

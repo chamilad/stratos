@@ -270,7 +270,6 @@
            </includes>
 	    <excludes>
                 <exclude>**/jmx.xml</exclude>
-		<exclude>**/tenant-axis2.xml</exclude>
 		<exclude>**/authenticators.xml</exclude>
 		<exclude>**/logging-config.xml</exclude>
             </excludes>
@@ -491,7 +490,7 @@
     <fileSet>
 	  <directory>src/main/autoscale-policies</directory>
 	  <outputDirectory>${pom.artifactId}-${pom.version}/repository/deployment/server/autoscale-policies</outputDirectory>
-	  <directoryMode>0755</directoryMode>
+	  <directoryMode>0600</directoryMode>
            <includes>
               <include>*.xml</include>
            </includes>
@@ -500,7 +499,7 @@
 	<fileSet>
 	  <directory>src/main/deployment-policies</directory>
 	  <outputDirectory>${pom.artifactId}-${pom.version}/repository/deployment/server/deployment-policies</outputDirectory>
-	  <directoryMode>0755</directoryMode>
+	  <directoryMode>0600</directoryMode>
            <includes>
               <include>*.xml</include>
            </includes>
@@ -509,7 +508,7 @@
 	<fileSet>
 	  <directory>src/main/partitions</directory>
 	  <outputDirectory>${pom.artifactId}-${pom.version}/repository/deployment/server/partitions</outputDirectory>
-	  <directoryMode>0755</directoryMode>
+	  <directoryMode>0600</directoryMode>
            <includes>
               <include>*.xml</include>
            </includes>
@@ -660,75 +659,87 @@
             <source>src/main/conf/autoscaler.xml</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
+        </file>
+        <file>
+            <source>src/main/conf/mock-iaas.xml</source>
+            <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf</outputDirectory>
+            <filtered>true</filtered>
+            <fileMode>600</fileMode>
         </file>
 	<!--iindentity.xml and application-authentication.xml for oAuth feature -->
         <file>
             <source>src/main/conf/identity.xml</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/security/application-authentication.xml</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/security/</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
+        </file>
+        <file>
+            <source>src/main/conf/axis2/tenant-axis2.xml</source>
+            <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/axis2/</outputDirectory>
+            <filtered>true</filtered>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/metadataservice.xml</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
 	<file>
             <source>src/main/conf/drools/mincheck.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/drools/obsoletecheck.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/drools/scaling.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/drools/dependent-scaling.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/drools/terminateall.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
                 <!-- container-drools files -->
         <file>
             <source>src/main/conf/drools/container-mincheck.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/drools/container-obsoletecheck.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
         <file>
             <source>src/main/conf/drools/container-scaling.drl</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
             <filtered>true</filtered>
-            <fileMode>755</fileMode>
+            <fileMode>600</fileMode>
         </file>
 		<!-- container-drools files -->
 		<!-- /drools files end-->
@@ -938,6 +949,17 @@
         <!-- REST endpoint webapp -->
         <file>
             <source>../p2-profile-gen/target/wso2carbon-core-${carbon.kernel.version}/repository/deployment/server/webapps/api.war</source>
+            <outputDirectory>${pom.artifactId}-${pom.version}/repository/deployment/server/webapps/</outputDirectory>
+            <fileMode>644</fileMode>
+        </file>
+	<!--oauth2.war and authenticationendpoint.war is related to oAuth feature  -->
+        <file>
+            <source>../p2-profile-gen/target/wso2carbon-core-${carbon.kernel.version}/repository/deployment/server/webapps/oauth2.war</source>
+            <outputDirectory>${pom.artifactId}-${pom.version}/repository/deployment/server/webapps/</outputDirectory>
+            <fileMode>644</fileMode>
+        </file>
+        <file>
+            <source>../p2-profile-gen/target/wso2carbon-core-${carbon.kernel.version}/repository/deployment/server/webapps/authenticationendpoint.war</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/deployment/server/webapps/</outputDirectory>
             <fileMode>644</fileMode>
         </file>

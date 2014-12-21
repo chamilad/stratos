@@ -25,7 +25,7 @@ import org.apache.stratos.autoscaler.status.processor.StatusProcessorChain;
  */
 public class ClusterStatusProcessorChain extends StatusProcessorChain {
     private ClusterStatusTerminatedProcessor clusterStatusTerminatedProcessor;
-    private ClusterStatusInActiveProcessor clusterStatusInActiveProcessor;
+    private ClusterStatusInactiveProcessor clusterStatusInactiveProcessor;
     private ClusterStatusActiveProcessor clusterStatusActiveProcessor;
 
     @Override
@@ -33,21 +33,19 @@ public class ClusterStatusProcessorChain extends StatusProcessorChain {
         clusterStatusTerminatedProcessor = new ClusterStatusTerminatedProcessor();
         add(clusterStatusTerminatedProcessor);
 
-        clusterStatusInActiveProcessor = new ClusterStatusInActiveProcessor();
-        add(clusterStatusInActiveProcessor);
+        clusterStatusInactiveProcessor = new ClusterStatusInactiveProcessor();
+        add(clusterStatusInactiveProcessor);
 
         clusterStatusActiveProcessor = new ClusterStatusActiveProcessor();
         add(clusterStatusActiveProcessor);
 
     }
 
-    public boolean process(String type, String clusterId, String instanceId) {
+    public boolean process(final String type, final String clusterId, final String instanceId) {
         ClusterStatusProcessor root = (ClusterStatusProcessor) list.getFirst();
         if (root == null) {
             throw new RuntimeException("Message processor chain is not initialized");
         }
         return root.process(type, clusterId, instanceId);
     }
-
-
 }

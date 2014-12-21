@@ -99,9 +99,10 @@
         <property name="oauthValidationEndpoint" value="https://localhost:9443/services/"/>
     </bean>
     <bean id="jsonProvider" class="org.apache.cxf.jaxrs.provider.json.JSONProvider">
-        <!-- property name="schemaHandler" ref="schemaHolder"/-->
         <property name="supportUnwrapped" value="true"/>
         <property name="serializeAsArray" value="true"/>
+        <property name="dropRootElement" value="true" />
+        <property name="dropCollectionWrapperElement" value="true"/>
         <property name="arrayKeys">
             <list>
                 <value>partitions</value>
@@ -127,6 +128,11 @@
                 <value>childLevelPartitions</value>
                 <value>networkPartition</value>
                 <value>partitions</value>
+                <value>dependencyAliases</value>
+                <value>groupInstances</value>
+                <value>clusterInstances</value>
+                <value>applicationInstances</value>
+
             </list>
         </property>
     </bean>
@@ -138,5 +144,4 @@
     <util:list id="theSchemas">
         <value>classpath:/WEB-INF/schemas/schema.xsd</value>
     </util:list>
-
 </beans>

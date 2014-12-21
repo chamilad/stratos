@@ -21,11 +21,8 @@ package org.apache.stratos.autoscaler.context.partition;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.stratos.autoscaler.context.group.GroupInstanceContext;
 import org.apache.stratos.autoscaler.context.member.MemberStatsContext;
-import org.apache.stratos.autoscaler.pojo.policy.deployment.partition.network.ChildLevelPartition;
 import org.apache.stratos.autoscaler.util.ConfUtil;
-import org.apache.stratos.cloud.controller.stub.domain.Partition;
 import org.apache.stratos.common.constants.StratosConstants;
 import org.apache.stratos.messaging.domain.instance.Instance;
 
@@ -86,6 +83,33 @@ public class GroupLevelPartitionContext extends PartitionContext implements Seri
 
     public GroupLevelPartitionContext(int max, String partitionId, String networkPartitionIid ) {
         super(max, partitionId, networkPartitionIid);
+        this.pendingInstances = new ArrayList<Instance>();
+        this.activeInstances = new ArrayList<Instance>();
+        this.terminationPendingInstances = new ArrayList<Instance>();
+        this.obsoletedInstances = new ConcurrentHashMap<String, Instance>();
+        instanceStatsContexts = new ConcurrentHashMap<String, MemberStatsContext>();
+
+
+        terminationPendingStartedTime = new HashMap<String, Long>();
+        // check if a different value has been set for expiryTime
+        XMLConfiguration conf = ConfUtil.getInstance(null).getConfiguration();
+        pendingInstanceExpiryTime = conf.getLong(StratosConstants.PENDING_VM_MEMBER_EXPIRY_TIMEOUT, 900000);
+        obsoltedInstanceExpiryTime = conf.getLong(StratosConstants.OBSOLETED_VM_MEMBER_EXPIRY_TIMEOUT, 86400000);
+        if (log.isDebugEnabled()) {
+            log.debug("Instance expiry time is set to: " + pendingInstanceExpiryTime);
+            log.debug("Instance obsoleted expiry time is set to: " + obsoltedInstanceExpiryTime);
+        }
+
+        /*Thread th = new Thread(new PendingInstanceWatcher(this));
+        th.start();
+        Thread th2 = new Thread(new ObsoletedInstanceWatcher(this));
+        th2.start();
+        Thread th3 = new Thread(new TerminationPendingInstanceWatcher(this));
+        th3.start();*/
+    }
+
+    public GroupLevelPartitionContext(String partitionId, String networkPartitionIid ) {
+        super(partitionId, networkPartitionIid);
         this.pendingInstances = new ArrayList<Instance>();
         this.activeInstances = new ArrayList<Instance>();
         this.terminationPendingInstances = new ArrayList<Instance>();

@@ -31,7 +31,7 @@ public class GroupStatusProcessorChain extends StatusProcessorChain {
     private GroupStatusActiveProcessor groupStatusActiveProcessor;
     private GroupStatusTerminatedProcessor groupStatusTerminatedProcessor;
     private GroupStatusTerminatingProcessor groupStatusTerminatingProcessor;
-    private GroupStatusInActiveProcessor groupStatusInActiveProcessor;
+    private GroupStatusInactiveProcessor groupStatusInactiveProcessor;
 
     @Override
     public void initialize() {
@@ -44,23 +44,23 @@ public class GroupStatusProcessorChain extends StatusProcessorChain {
         groupStatusTerminatingProcessor = new GroupStatusTerminatingProcessor();
         add(groupStatusTerminatingProcessor);
 
-        groupStatusInActiveProcessor = new GroupStatusInActiveProcessor();
-        add(groupStatusInActiveProcessor);
+        groupStatusInactiveProcessor = new GroupStatusInactiveProcessor();
+        add(groupStatusInactiveProcessor);
 
     }
 
-    public boolean process(String idOfComponent, String appId,
-                           String instanceId) {
+    public void process(final String idOfComponent, final String appId,
+                        final String instanceId) {
+
+
         GroupStatusProcessor root = (GroupStatusProcessor) list.getFirst();
         if (root == null) {
             throw new RuntimeException("Message processor chain is not initialized");
         }
-        if (log.isInfoEnabled()) {
-            log.info("GroupProcessor chain calculating the status for the group " +
+        if (log.isDebugEnabled()) {
+            log.debug("GroupProcessor chain calculating the status for the group " +
                     "[ " + idOfComponent + " ]");
         }
-
-        return root.process(idOfComponent, appId, instanceId);
+        root.process(idOfComponent, appId, instanceId);
     }
-
 }

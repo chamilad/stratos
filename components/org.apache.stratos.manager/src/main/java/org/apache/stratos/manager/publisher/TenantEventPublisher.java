@@ -22,7 +22,7 @@ package org.apache.stratos.manager.publisher;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.common.beans.TenantInfoBean;
-import org.apache.stratos.common.exception.StratosException;
+import org.apache.stratos.common.exception.ApacheStratosException;
 import org.apache.stratos.common.listeners.TenantMgtListener;
 import org.apache.stratos.messaging.broker.publish.EventPublisher;
 import org.apache.stratos.messaging.broker.publish.EventPublisherPool;
@@ -42,7 +42,7 @@ public class TenantEventPublisher implements TenantMgtListener {
 	private static final int EXEC_ORDER = 1;
 
 	@Override
-	public void onTenantCreate(TenantInfoBean tenantInfo) throws StratosException {
+	public void onTenantCreate(TenantInfoBean tenantInfo) throws ApacheStratosException {
 		try {
 			if (log.isDebugEnabled()) {
 				log.debug(String.format("Publishing tenant created event: [tenant-id] %d [tenant-domain] %s",
@@ -54,12 +54,14 @@ public class TenantEventPublisher implements TenantMgtListener {
 			EventPublisher eventPublisher = EventPublisherPool.getPublisher(topic);
 			eventPublisher.publish(event);
 		} catch (Exception e) {
-			log.error("Could not publish tenant created event", e);
+			log.error(String.format("Could not publish tenant created event [tenant-id] %d [tenant-domain] %s ",
+			                        tenantInfo.getTenantId(),
+			                        tenantInfo.getTenantDomain()), e);
 		}
 	}
 
 	@Override
-	public void onTenantUpdate(TenantInfoBean tenantInfo) throws StratosException {
+	public void onTenantUpdate(TenantInfoBean tenantInfo) throws ApacheStratosException {
 		try {
 			if (log.isInfoEnabled()) {
 				log.info(String.format("Publishing tenant updated event: [tenant-id] %d [tenant-domain] %s",
@@ -72,7 +74,9 @@ public class TenantEventPublisher implements TenantMgtListener {
 			EventPublisher eventPublisher = EventPublisherPool.getPublisher(topic);
 			eventPublisher.publish(event);
 		} catch (Exception e) {
-			log.error("Could not publish tenant updated event");
+			log.error(String.format("Could not publish tenant updated event:[tenant-id] %d [tenant-domain] %s ",
+			                        tenantInfo.getTenantId(),
+			                        tenantInfo.getTenantDomain()), e);
 		}
 	}
 
@@ -87,30 +91,30 @@ public class TenantEventPublisher implements TenantMgtListener {
 			EventPublisher eventPublisher = EventPublisherPool.getPublisher(topic);
 			eventPublisher.publish(event);
 		} catch (Exception e) {
-			log.error("Could not publish tenant removed event");
+			log.error(String.format("Could not publish tenant removed event [tenant-id] %d", tenantId),e);
 		}
 	}
 
 	@Override
 	public void onTenantRename(int tenantId, String oldDomainName, String newDomainName)
-	                                                                                    throws StratosException {
+	                                                                                    throws ApacheStratosException {
 	}
 
 	@Override
-	public void onTenantInitialActivation(int tenantId) throws StratosException {
+	public void onTenantInitialActivation(int tenantId) throws ApacheStratosException {
 	}
 
 	@Override
-	public void onTenantActivation(int tenantId) throws StratosException {
+	public void onTenantActivation(int tenantId) throws ApacheStratosException {
 	}
 
 	@Override
-	public void onTenantDeactivation(int tenantId) throws StratosException {
+	public void onTenantDeactivation(int tenantId) throws ApacheStratosException {
 	}
 
 	@Override
 	public void onSubscriptionPlanChange(int tenantId, String oldPlan, String newPlan)
-	                                                                                  throws StratosException {
+	                                                                                  throws ApacheStratosException {
 	}
 
 	@Override

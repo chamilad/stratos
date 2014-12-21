@@ -31,7 +31,8 @@ import org.apache.stratos.autoscaler.context.AutoscalerContext;
 import org.apache.stratos.autoscaler.exception.AutoScalerException;
 import org.apache.stratos.autoscaler.exception.InvalidArgumentException;
 import org.apache.stratos.autoscaler.exception.application.ApplicationDefinitionException;
-import org.apache.stratos.autoscaler.exception.kubernetes.*;
+import org.apache.stratos.autoscaler.exception.application.TopologyInConsistentException;
+import org.apache.stratos.autoscaler.exception.kubernetes.InvalidServiceGroupException;
 import org.apache.stratos.autoscaler.exception.partition.PartitionValidationException;
 import org.apache.stratos.autoscaler.exception.policy.InvalidPolicyException;
 import org.apache.stratos.autoscaler.interfaces.AutoScalerServiceInterface;
@@ -70,130 +71,74 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
 
     private static final Log log = LogFactory.getLog(AutoScalerServiceImpl.class);
 
-    public DeploymentPolicy[] getAllDeploymentPolicies() {
-        return PolicyManager.getInstance().getDeploymentPolicyList();
-    }
 
-    public AutoscalePolicy[] getAllAutoScalingPolicy() {
+    public AutoscalePolicy[] getAutoScalingPolicies() {
         return PolicyManager.getInstance().getAutoscalePolicyList();
     }
 
-    @Override
-    public DeploymentPolicy[] getValidDeploymentPoliciesforCartridge(String cartridgeType) {
-        ArrayList<DeploymentPolicy> validPolicies = new ArrayList<DeploymentPolicy>();
-
-        for (DeploymentPolicy deploymentPolicy : this.getAllDeploymentPolicies()) {
-            /*try {
-                // call CC API
-                //CloudControllerClient.getInstance().validateDeploymentPolicy(cartridgeType, deploymentPolicy);
-                // if this deployment policy is valid for this cartridge, add it.
-                validPolicies.add(deploymentPolicy);
-            } catch (PartitionValidationException ignoredException) {
-                // if this policy doesn't valid for the given cartridge, add a debug log.
-                if (log.isDebugEnabled()) {
-                    log.debug("Deployment policy [id] " + deploymentPolicy.getId()
-                            + " is not valid for Cartridge [type] " + cartridgeType, ignoredException);
-                }
-            }*/
-        }
-        return validPolicies.toArray(new DeploymentPolicy[0]);
-    }
-
-    @Override
-    public String addDeploymentPolicy(DeploymentPolicy deploymentPolicy) throws InvalidPolicyException {
-        String policyId = PolicyManager.getInstance().deployDeploymentPolicy(deploymentPolicy);
-        //Need to start the application Monitor after validation of the deployment policies.
-        //FIXME add validation
-        validateDeploymentPolicy(deploymentPolicy);
-        //Check whether all the clusters are there
-        ApplicationHolder.acquireReadLock();
-        boolean allClusterInitialized = false;
-        String appId = deploymentPolicy.getApplicationId();
+    private boolean validateDeploymentPolicy(DeploymentPolicy deploymentPolicy) {
         try {
-            Application application = ApplicationHolder.getApplications().
-                    getApplication(deploymentPolicy.getApplicationId());
-            if (application != null) {
+            ApplicationHolder.acquireReadLock();
 
-                allClusterInitialized = AutoscalerUtil.allClustersInitialized(application);
+            for (ChildPolicy childPolicy : deploymentPolicy.getChildPolicies()) {
+                String alias = childPolicy.getAlias();
+                List<Partition> partitionList = new ArrayList<Partition>();
+                for (ChildLevelNetworkPartition networkPartition : childPolicy.getChildLevelNetworkPartitions()) {
+                    Partition[] partitions = deploymentPolicy.getApplicationLevelNetworkPartition(
+                            networkPartition.getId()).getPartitions();
+                    for (Partition partition : partitions) {
+                        partitionList.add(partition);
+                    }
+                }
+
+                Application application = ApplicationHolder.getApplications().
+                        getApplication(deploymentPolicy.getApplicationId());
+                Partition[] partitions = new Partition[partitionList.size()];
+                if (application != null) {
+                    Group group = application.getGroupRecursively(alias);
+                    if (group != null) {
+                        Set<ClusterDataHolder> clusterDataHolders = group.getClusterDataHoldersOfGroup();
+                        //validating the group deployment policy against the leaf cartridges
+                        for (ClusterDataHolder clusterDataHolder : clusterDataHolders) {
+                            CloudControllerClient.getInstance().validateDeploymentPolicy(
+                                    clusterDataHolder.getServiceType(), partitionList.toArray(partitions));
+                        }
+                    } else {
+                        //Validating the cartridge level deployment policy
+                        ClusterDataHolder clusterDataHolder = application.
+                                getClusterDataHolderRecursivelyByAlias(alias);
+                        if (clusterDataHolder != null) {
+                            CloudControllerClient.getInstance().validateDeploymentPolicy(
+                                    clusterDataHolder.getServiceType(), partitionList.toArray(partitions));
+                        } else {
+                            String msg = "Error while retrieving the group/cluster for the Deployment " +
+                                    "policy: " + alias;
+                            log.error(msg);
+                            throw new TopologyInConsistentException(msg);
+                        }
+                    }
+                } else {
+                    String msg = "Error while retrieving the application for the Deployment policy: " +
+                            deploymentPolicy.getApplicationId();
+                    log.error(msg);
+                    throw new TopologyInConsistentException(msg);
+                }
             }
+        } catch (PartitionValidationException e) {
+            log.error("Error while validating the deployment policy", e);
+            //TODO throw exception
+        } catch (TopologyInConsistentException e) {
+            log.error("Error while validating the deployment policy", e);
+            //TODO throw exception
         } finally {
             ApplicationHolder.releaseReadLock();
         }
-
-        if (!AutoscalerContext.getInstance().containsPendingMonitor(appId)
-                                    || !AutoscalerContext.getInstance().monitorExists(appId)) {
-            if(allClusterInitialized) {
-                AutoscalerUtil.getInstance().
-                        startApplicationMonitor(appId);
-            } else {
-                log.info("The application clusters are not yet created. " +
-                        "Waiting for them to be created");
-            }
-        } else {
-            log.info("The application Monitor has already been created for [Application] " + appId);
-        }
-        return policyId;
-    }
-
-    private boolean validateDeploymentPolicy(DeploymentPolicy deploymentPolicy) {
-
-        for(ChildPolicy childPolicy : deploymentPolicy.getChildPolicies()) {
-            String alias = childPolicy.getId();
-            ApplicationHolder.acquireReadLock();
-            List<Partition> partitionList = new ArrayList<Partition>();
-            for(ChildLevelNetworkPartition networkPartition : childPolicy.getChildLevelNetworkPartitions()) {
-                Partition[] partitions = deploymentPolicy.getApplicationLevelNetworkPartition(
-                                                    networkPartition.getId()).getPartitions();
-                for(Partition partition : partitions) {
-                    partitionList.add(partition);
-                }
-            }
-            try {
-                Application application = ApplicationHolder.getApplications().
-                                getApplication(deploymentPolicy.getApplicationId());
-                Partition[] partitions = new Partition[partitionList.size()];
-                Group group = application.getGroupRecursively(alias);
-                if(group != null) {
-                    Set<ClusterDataHolder> clusterDataHolders = group.getClusterDataHoldersOfGroup();
-                    //validating the group deployment policy against the leaf cartridges
-                    for(ClusterDataHolder clusterDataHolder : clusterDataHolders) {
-                        CloudControllerClient.getInstance().validateDeploymentPolicy(
-                                clusterDataHolder.getServiceType(), partitionList.toArray(partitions));
-                    }
-                } else {
-                    //Validating the cartridge level deployment policy
-                    ClusterDataHolder clusterDataHolder = application.
-                            getClusterDataHolderRecursivelyByAlias(alias);
-                    if(clusterDataHolder != null) {
-                        CloudControllerClient.getInstance().validateDeploymentPolicy(
-                                clusterDataHolder.getServiceType(), partitionList.toArray(partitions));
-                    }
-                }
-            } catch (PartitionValidationException e) {
-                log.error("Error while validating the deployment policy", e);
-                //TODO throw exception
-            } finally {
-                ApplicationHolder.releaseReadLock();
-            }
-
-        }
-
         return true;
     }
 
     @Override
-    public boolean undeployDeploymentPolicy(String applicationId) {
-        return ApplicationBuilder.handleApplicationPolicyUndeployed(applicationId);
-    }
-
-    @Override
-    public boolean updateDeploymentPolicy(DeploymentPolicy deploymentPolicy) throws InvalidPolicyException {
-        return PolicyManager.getInstance().updateDeploymentPolicy(deploymentPolicy);
-    }
-
-    @Override
     public boolean addAutoScalingPolicy(AutoscalePolicy autoscalePolicy) throws InvalidPolicyException {
-        return PolicyManager.getInstance().deployAutoscalePolicy(autoscalePolicy);
+        return PolicyManager.getInstance().addAutoscalePolicy(autoscalePolicy);
     }
 
     @Override
@@ -216,38 +161,114 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
         return PolicyManager.getInstance().getDeploymentPolicy(deploymentPolicyId).getApplicationLevelNetworkPartitions();
     }
 
-    //    @Override
-    public Partition[] getPartitionsOfGroup(String deploymentPolicyId, String groupId) {
-        DeploymentPolicy depPol = this.getDeploymentPolicy(deploymentPolicyId);
-        if (null == depPol) {
-            return null;
-        }
-
-        ApplicationLevelNetworkPartition group = depPol.getApplicationLevelNetworkPartition(groupId);
-
-        if (group == null) {
-            return null;
-        }
-
-        return group.getPartitions();
-    }
-
     @Override
-    public void deployApplicationDefinition(ApplicationContext applicationContext)
+    public void addApplication(ApplicationContext applicationContext)
             throws ApplicationDefinitionException {
+
+        if(log.isInfoEnabled()) {
+            log.info(String.format("Starting to add application: [application-id] %s",
+                    applicationContext.getApplicationId()));
+        }
 
         ApplicationParser applicationParser = new DefaultApplicationParser();
-        Application application = applicationParser.parse(applicationContext);
-        // publishMetadata(applicationParser, application.getUniqueIdentifier());
-        ApplicationBuilder.handleApplicationCreated(application,
-                applicationParser.getApplicationClusterContexts());
+        applicationParser.parse(applicationContext);
+        applicationContext.setStatus(ApplicationContext.STATUS_CREATED);
+        AutoscalerContext.getInstance().addApplicationContext(applicationContext);
+        if(log.isInfoEnabled()) {
+            log.info(String.format("Application added successfully: [application-id] %s",
+                    applicationContext.getApplicationId()));
+        }
     }
 
     @Override
-    public void unDeployApplicationDefinition(String applicationId, int tenantId, String tenantDomain)
-            throws ApplicationDefinitionException {
+    public ApplicationContext getApplication(String applicationId) {
+        return AutoscalerContext.getInstance().getApplicationContext(applicationId);
+    }
 
+    @Override
+    public ApplicationContext[] getApplications() {
+        return AutoscalerContext.getInstance().getApplicationContexts().
+                toArray(new ApplicationContext[AutoscalerContext.getInstance().getApplicationContexts().size()]);
+    }
+
+    @Override
+    public boolean deployApplication(String applicationId, DeploymentPolicy policy) throws ApplicationDefinitionException {
+        try {
+            ApplicationContext applicationContext = RegistryManager.getInstance().getApplicationContext(applicationId);
+            if (applicationContext == null) {
+                throw new RuntimeException("Application not found: " + applicationId);
+            }
+
+            ApplicationParser applicationParser = new DefaultApplicationParser();
+            Application application = applicationParser.parse(applicationContext);
+            ApplicationBuilder.handleApplicationCreated(application, applicationParser.getApplicationClusterContexts());
+
+            try {
+                PolicyManager.getInstance().addDeploymentPolicy(policy);
+                applicationContext.setStatus(ApplicationContext.STATUS_DEPLOYED);
+                AutoscalerContext.getInstance().updateApplicationContext(applicationContext);
+            } catch (InvalidPolicyException e) {
+                String message = "Deployment policy is not valid: [application-id] " + policy.getApplicationId();
+                log.error(message, e);
+                throw new RuntimeException(message, e);
+            }
+
+            //Need to start the application Monitor after validation of the deployment policies.
+            //FIXME add validation
+            validateDeploymentPolicy(policy);
+            //Check whether all the clusters are there
+            boolean allClusterInitialized = false;
+            try {
+                ApplicationHolder.acquireReadLock();
+                application = ApplicationHolder.getApplications().getApplication(policy.getApplicationId());
+                if (application != null) {
+                    allClusterInitialized = AutoscalerUtil.allClustersInitialized(application);
+                }
+            } finally {
+                ApplicationHolder.releaseReadLock();
+            }
+
+            if (!AutoscalerContext.getInstance().containsPendingMonitor(applicationId)
+                    || !AutoscalerContext.getInstance().monitorExists(applicationId)) {
+                if (allClusterInitialized) {
+                    AutoscalerUtil.getInstance().startApplicationMonitor(applicationId);
+                } else {
+                    log.info("The application clusters are not yet created. " +
+                            "Waiting for them to be created");
+                }
+            } else {
+                log.info("The application monitor has already been created: [application-id] " + applicationId);
+            }
+            return true;
+        } catch (Exception e) {
+            ApplicationContext applicationContext = RegistryManager.getInstance().getApplicationContext(applicationId);
+            if(applicationContext != null) {
+                // Revert application status
+                applicationContext.setStatus(ApplicationContext.STATUS_CREATED);
+                AutoscalerContext.getInstance().updateApplicationContext(applicationContext);
+            }
+            String message = "Application deployment failed";
+            log.error(message, e);
+            throw new RuntimeException(message, e);
+        }
+    }
+
+    @Override
+    public void undeployApplication(String applicationId) {
         ApplicationBuilder.handleApplicationUndeployed(applicationId);
+
+        ApplicationContext applicationContext = AutoscalerContext.getInstance().getApplicationContext(applicationId);
+        applicationContext.setStatus(ApplicationContext.STATUS_CREATED);
+        AutoscalerContext.getInstance().updateApplicationContext(applicationContext);
+    }
+
+    @Override
+    public void deleteApplication(String applicationId) {
+        AutoscalerContext.getInstance().removeApplicationContext(applicationId);
+        if(log.isInfoEnabled()) {
+            log.info(String.format("Application deleted successfully: [application-id] ",
+                    applicationId));
+        }
     }
 
     public void updateClusterMonitor(String clusterId, Properties properties) throws InvalidArgumentException {
@@ -265,7 +286,7 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
         }
     }
 
-    public void deployServiceGroup(ServiceGroup servicegroup) throws InvalidServiceGroupException {
+    public void addServiceGroup(ServiceGroup servicegroup) throws InvalidServiceGroupException {
 
         if (servicegroup == null || StringUtils.isEmpty(servicegroup.getName())) {
             String msg = "Service group can not be null service name can not be empty.";
@@ -273,18 +294,20 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
             throw new IllegalArgumentException(msg);
 
         }
-        String name = servicegroup.getName();
 
-        if (RegistryManager.getInstance().serviceGroupExist(name)) {
-            throw new InvalidServiceGroupException("Service group with the name " + name + " already exist.");
+        if(log.isInfoEnabled()) {
+            log.info(String.format("Starting to add service group: [group-name] %s", servicegroup.getName()));
+        }
+        String groupName = servicegroup.getName();
+        if (RegistryManager.getInstance().serviceGroupExist(groupName)) {
+            throw new InvalidServiceGroupException("Service group with the name " + groupName + " already exist.");
         }
 
         if (log.isDebugEnabled()) {
-            log.debug(MessageFormat.format("Deploying service group {0}", servicegroup.getName()));
+            log.debug(MessageFormat.format("Adding service group {0}", servicegroup.getName()));
         }
 
         String[] subGroups = servicegroup.getCartridges();
-
         if (log.isDebugEnabled()) {
             log.debug("SubGroups" + subGroups);
             if (subGroups != null) {
@@ -294,9 +317,7 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
             }
         }
 
-
         Dependencies dependencies = servicegroup.getDependencies();
-
         if (log.isDebugEnabled()) {
             log.debug("Dependencies" + dependencies);
         }
@@ -313,20 +334,46 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
                     log.debug("StartupOrder: is null");
                 }
             }
-            String[] scalingOrders = dependencies.getScalingOrders();
+            String[] scalingDependents = dependencies.getScalingDependants();
 
             if (log.isDebugEnabled()) {
-                log.debug("ScalingOrders " + scalingOrders);
+                log.debug("ScalingDependent " + scalingDependents);
 
-                if (scalingOrders != null) {
-                    log.debug("ScalingOrder:size " + scalingOrders.length);
+                if (scalingDependents != null) {
+                    log.debug("ScalingDependents:size " + scalingDependents.length);
                 } else {
-                    log.debug("ScalingOrder: is null");
+                    log.debug("ScalingDependent: is null");
                 }
             }
         }
 
         RegistryManager.getInstance().persistServiceGroup(servicegroup);
+        if(log.isInfoEnabled()) {
+            log.info(String.format("Service group successfully added: [group-name] %s", servicegroup.getName()));
+        }
+    }
+
+    @Override
+    public void removeServiceGroup(String groupName) {
+        try {
+            if(log.isInfoEnabled()) {
+                log.info(String.format("Starting to remove service group: [group-name] %s", groupName));
+            }
+            if(RegistryManager.getInstance().serviceGroupExist(groupName)) {
+                RegistryManager.getInstance().removeServiceGroup(groupName);
+                if(log.isInfoEnabled()) {
+                    log.info(String.format("Service group removed: [group-name] %s", groupName));
+                }
+            } else {
+                if(log.isWarnEnabled()) {
+                    log.warn(String.format("Service group not found: [group-name] %s", groupName));
+                }
+            }
+        } catch (org.wso2.carbon.registry.core.exceptions.RegistryException e) {
+            String message = "Could not remove service group: " + groupName;
+            log.error(message, e);
+            throw new RuntimeException(message, e);
+        }
     }
 
     public ServiceGroup getServiceGroup(String name) {

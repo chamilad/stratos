@@ -29,7 +29,6 @@ import org.apache.stratos.metadataservice.registry.DataStore;
 import org.apache.stratos.metadataservice.util.ConfUtil;
 import org.wso2.carbon.registry.api.RegistryException;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
@@ -63,20 +62,22 @@ public class MetaDataAdmin {
     @Produces("application/json")
     @Consumes("application/json")
     @AuthorizationAction("/permission/protected/manage/monitor/tenants")
-    public Response getClusterProperties(@PathParam("application_id") String applicationId, @PathParam("cluster_id") String clusterId){
+    public Response getClusterProperties(@PathParam("application_id") String applicationId, @PathParam("cluster_id") String clusterId) throws RestAPIException{
 
         List<NewProperty> properties;
         NewProperty[] propertiesArr = null;
-        try {
-            properties = registry
-                    .getPropertiesOfCluster(applicationId, clusterId);
-            if (properties != null) {
-                propertiesArr = new NewProperty[properties.size()];
-                propertiesArr = properties.toArray(propertiesArr);
-            }
-        } catch (Exception e) {
-            log.error("Error occurred while getting properties ", e);
-        }
+	    try {
+		    properties = registry
+				    .getPropertiesOfCluster(applicationId, clusterId);
+		    if (properties != null) {
+			    propertiesArr = new NewProperty[properties.size()];
+			    propertiesArr = properties.toArray(propertiesArr);
+		    }
+	    } catch (RegistryException e) {
+		    String msg = "Error occurred while getting properties ";
+		    log.error(msg, e);
+		    throw new RestAPIException(msg, e);
+	    }
 
         Response.ResponseBuilder rb;
         if (propertiesArr == null) {
@@ -92,28 +93,29 @@ public class MetaDataAdmin {
     @Produces("application/json")
     @Consumes("application/json")
     @AuthorizationAction("/permission/protected/manage/monitor/tenants")
-
-    public Response getClusterProperty(@PathParam("application_id") String applicationId, @PathParam("cluster_id") String clusterId, @PathParam("property_name") String propertyName){
+    public Response getClusterProperty(@PathParam("application_id") String applicationId, @PathParam("cluster_id") String clusterId, @PathParam("property_name") String propertyName) throws RestAPIException{
         List<NewProperty> properties;
 
 
         NewProperty property = null;
 
-        try {
-            properties = registry
-                    .getPropertiesOfCluster(applicationId, clusterId);
-            if (properties == null) {
-                return Response.status(Response.Status.NOT_FOUND).build();
-            }
-            for (NewProperty p : properties) {
-                if (propertyName.equals(p.getKey())) {
-                    property = p;
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error occurred while getting property ", e);
-        }
+	    try {
+		    properties = registry
+				    .getPropertiesOfCluster(applicationId, clusterId);
+		    if (properties == null) {
+			    return Response.status(Response.Status.NOT_FOUND).build();
+		    }
+		    for (NewProperty p : properties) {
+			    if (propertyName.equals(p.getKey())) {
+				    property = p;
+				    break;
+			    }
+		    }
+	    } catch (RegistryException e) {
+		    String msg = "Error occurred while getting property";
+		    log.error(msg, e);
+		    throw new RestAPIException(msg, e);
+	    }
 
         Response.ResponseBuilder rb;
         if (property == null) {
@@ -134,11 +136,13 @@ public class MetaDataAdmin {
 
         URI url =  uriInfo.getAbsolutePathBuilder().path(applicationId + "/" + clusterId + "/" + property.getKey()).build();
 
-        try {
-            registry.addPropertyToCluster(applicationId, clusterId, property);
-        } catch (RegistryException e) {
-            log.error("Error occurred while adding property", e);
-        }
+	    try {
+		    registry.addPropertyToCluster(applicationId, clusterId, property);
+	    } catch (RegistryException e) {
+		    String msg = "Error occurred while adding property";
+		    log.error(msg, e);
+		    throw new RestAPIException(msg, e);
+	    }
 
         return Response.created(url).build();
     }
@@ -152,11 +156,13 @@ public class MetaDataAdmin {
             throws RestAPIException {
         URI url = uriInfo.getAbsolutePathBuilder().path(applicationId + "/" + clusterId).build();
 
-        try {
-            registry.addPropertiesToCluster(applicationId, clusterId, properties);
-        } catch (Exception e) {
-            log.error("Error occurred while adding properties ", e);
-        }
+	    try {
+		    registry.addPropertiesToCluster(applicationId, clusterId, properties);
+	    } catch (RegistryException e) {
+		    String msg = "Error occurred while adding properties ";
+		    log.error(msg, e);
+		    throw new RestAPIException(msg, e);
+	    }
 
         return Response.created(url).build();
     }
@@ -169,16 +175,18 @@ public class MetaDataAdmin {
     public Response deleteApplicationProperties(@PathParam("application_id") String applicationId)
             throws RestAPIException {
 
-        try {
-            boolean deleted = registry.deleteApplication(applicationId);
-            if(!deleted){
-                log.warn(String.format("Either no metadata is associated with given appId %s Or resources could not be deleted", applicationId));
-            }
-        } catch (RegistryException e) {
-            String msg= "Resource attached with appId could not be deleted";
-            log.error(msg, e);
-            throw  new RestAPIException(" ", e);
-        }
+	    try {
+		    boolean deleted = registry.deleteApplication(applicationId);
+		    if (!deleted) {
+			    log.warn(String.format(
+					    "Either no metadata is associated with given appId %s Or resources could not be deleted",
+					    applicationId));
+		    }
+	    } catch (RegistryException e) {
+		    String msg = "Resource attached with appId could not be deleted";
+		    log.error(msg, e);
+		    throw new RestAPIException(msg, e);
+	    }
 
         return Response.ok().build();
     }

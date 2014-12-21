@@ -130,8 +130,9 @@ public class InstanceSpawnedMessageProcessor extends MessageProcessor {
         } else {
 
             // Apply changes to the topology
-            Member member = new Member(event.getServiceName(), event.getClusterId(), event.getNetworkPartitionId(), event.getPartitionId(), event.getMemberId(), event.getInitTime());
-            //member.setStatus(MemberStatus.Created);
+            Member member = new Member(event.getServiceName(), event.getClusterId(), event.getMemberId(),
+                    event.getInstanceId(), event.getClusterInstanceId(), event.getNetworkPartitionId(),
+                    event.getPartitionId(), event.getInitTime());
             member.setMemberPublicIp(event.getMemberPublicIp());
             member.setMemberIp(event.getMemberIp());
             member.setLbClusterId(event.getLbClusterId());
@@ -139,10 +140,13 @@ public class InstanceSpawnedMessageProcessor extends MessageProcessor {
             cluster.addMember(member);
 
             if (log.isInfoEnabled()) {
-                log.info(String.format("Member created: [service] %s [cluster] %s [member] %s",
+                log.info(String.format("Member created: [service] %s [cluster] %s [member] %s " +
+                                "[instance] %s [hierarchy-instance] %s",
                         event.getServiceName(),
                         event.getClusterId(),
-                        event.getMemberId()));
+                        event.getMemberId(),
+                        event.getInstanceId(),
+                        event.getClusterInstanceId()));
             }
         }
 

@@ -39,6 +39,7 @@ public class GroupStatusTerminatedProcessor extends GroupStatusProcessor {
     public void setNext(StatusProcessor nextProcessor) {
         this.nextProcessor = (GroupStatusProcessor) nextProcessor;
     }
+
     @Override
     public boolean process(String idOfComponent, String appId,
                            String instanceId) {
@@ -65,8 +66,9 @@ public class GroupStatusTerminatedProcessor extends GroupStatusProcessor {
         Map<String, Group> groups;
         Map<String, ClusterDataHolder> clusterData;
 
-        if (log.isInfoEnabled()) {
-            log.info("StatusChecker calculating the status for the group [ " + idOfComponent + " ]");
+        if (log.isDebugEnabled()) {
+            log.debug("StatusChecker calculating the terminated status for the group " +
+                    "[ " + idOfComponent + " ]" + " for the instance " + " [ " + instanceId + " ]");
         }
 
         try {
@@ -84,27 +86,22 @@ public class GroupStatusTerminatedProcessor extends GroupStatusProcessor {
             groups = component.getAliasToGroupMap();
             clusterData = component.getClusterDataMap();
 
-            if (component.isGroupScalingEnabled()) {
-
-            } else {
-                if (groups.isEmpty() && getAllClusterInSameState(clusterData, ClusterStatus.Terminated, instanceId) ||
-                        clusterData.isEmpty() && getAllGroupInSameState(groups, GroupStatus.Terminated, instanceId) ||
-                        getAllClusterInSameState(clusterData, ClusterStatus.Terminated, instanceId) &&
-                                getAllGroupInSameState(groups, GroupStatus.Terminated, instanceId)) {
-                    //send the terminated event
-                    if (component instanceof Application) {
-                        log.info("sending app terminated: " + appId);
-                        ApplicationBuilder.handleApplicationInstanceTerminatedEvent(appId, instanceId);
-                        return true;
-                    } else if (component instanceof Group) {
-                        //send activation to the parent
-                        if (((Group) component).getStatus(null) != GroupStatus.Terminated) {
-                            log.info("sending group terminated : " + component.getUniqueIdentifier());
-                            ApplicationBuilder.handleGroupInstanceTerminatedEvent(appId,
-                                    component.getUniqueIdentifier(), instanceId);
-                            return true;
-                        }
-                    }
+            if (groups.isEmpty() && getAllClusterInSameState(clusterData, ClusterStatus.Terminated, instanceId) ||
+                    clusterData.isEmpty() && getAllGroupInSameState(groups, GroupStatus.Terminated, instanceId) ||
+                    getAllClusterInSameState(clusterData, ClusterStatus.Terminated, instanceId) &&
+                            getAllGroupInSameState(groups, GroupStatus.Terminated, instanceId)) {
+                //send the terminated event
+                if (component instanceof Application) {
+                    log.info("sending application terminated for [application] " + appId + " [instance] "
+                            + instanceId);
+                    ApplicationBuilder.handleApplicationInstanceTerminatedEvent(appId, instanceId);
+                    return true;
+                } else if (component instanceof Group) {
+                    log.info("sending group instance terminated for [group] " +
+                            component.getUniqueIdentifier() + " [instance] " + instanceId);
+                    ApplicationBuilder.handleGroupInstanceTerminatedEvent(appId,
+                            component.getUniqueIdentifier(), instanceId);
+                    return true;
                 }
             }
 

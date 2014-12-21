@@ -27,13 +27,13 @@
         <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
         <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
     </messageReceivers>
-        <operation name="deployCartridgeDefinition">
+        <operation name="addCartridge">
             <parameter name="AuthorizationAction" locked="true">/permission/admin/manage/add/cartridgeDefinition</parameter>
         </operation>
-        <operation name="undeployCartridgeDefinition">
+        <operation name="removeCartridge">
             <parameter name="AuthorizationAction" locked="true">/permission/admin/manage/add/cartridgeDefinition</parameter>
         </operation>
-        <operation name="getRegisteredCartridges">
+        <operation name="getCartridges">
             <parameter name="AuthorizationAction" locked="true">/permission/admin/manage/view/cartridge</parameter>
         </operation>
         <operation name="getCartridgeInfo">

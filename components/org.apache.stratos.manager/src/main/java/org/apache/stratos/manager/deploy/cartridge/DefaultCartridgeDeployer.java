@@ -24,31 +24,27 @@ import org.apache.stratos.cloud.controller.stub.domain.CartridgeConfig;
 import org.apache.stratos.manager.client.CloudControllerServiceClient;
 import org.apache.stratos.manager.exception.ADCException;
 
-public class DefaultCartridgeDeployer extends CartridgeDeployer{
+public class DefaultCartridgeDeployer extends CartridgeDeployer {
 
 	private static Log log = LogFactory.getLog(DefaultCartridgeDeployer.class);
 	
 	@Override
 	protected void preDeployment() {
-				
 	}
 
 	@Override
 	protected void postDeployment() {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	protected void deployCartridge(CartridgeConfig cartridgeConfig) throws ADCException {
 		try {
 			CloudControllerServiceClient cloudControllerServiceClient = CloudControllerServiceClient.getServiceClient();
-			cloudControllerServiceClient.deployCartridgeDefinition(cartridgeConfig);
+			cloudControllerServiceClient.addCartridge(cartridgeConfig);
 		} catch (Exception e) {
-			String msg = "Exception in deploying the cartridge. ";
-			log.error(msg + e.getMessage());
+			String msg = "Could not deploy cartridge";
+			log.error(msg, e);
 			throw new ADCException(msg);
 		}	
 	}
-
 }

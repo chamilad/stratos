@@ -43,6 +43,7 @@ public class ClusterLevelPartitionContext extends PartitionContext implements Se
     private static final Log log = LogFactory.getLog(ClusterLevelPartitionContext.class);
     private final int PENDING_MEMBER_FAILURE_THRESHOLD = 5;
     private String serviceName;
+    private String clusterId;
     private int minimumMemberCount = 0;
     private int pendingMembersFailureCount = 0;
     // properties
@@ -82,9 +83,10 @@ public class ClusterLevelPartitionContext extends PartitionContext implements Se
         this.pendingMembers = new ArrayList<MemberContext>();
     }
 
-    public ClusterLevelPartitionContext(int max, Partition partition, String networkPartitionId) {
+    public ClusterLevelPartitionContext(int max, Partition partition, String networkPartitionId, String clusterId) {
 
         super(max, partition, networkPartitionId);
+        this.clusterId = clusterId;
         this.pendingMembers = new ArrayList<MemberContext>();
         this.activeMembers = new ArrayList<MemberContext>();
         this.terminationPendingMembers = new ArrayList<MemberContext>();
@@ -151,7 +153,6 @@ public class ClusterLevelPartitionContext extends PartitionContext implements Se
 
             }
         }
-
         return false;
     }
 
@@ -221,6 +222,7 @@ public class ClusterLevelPartitionContext extends PartitionContext implements Se
                     iterator.remove();
                     // add to the activated list
                     this.terminationPendingMembers.add(activeMember);
+                    terminationPendingStartedTime.put(memberId, System.currentTimeMillis());
                     if (log.isDebugEnabled()) {
                         log.debug(String.format("Active member is removed and added to the " +
                                 "termination pending member list. [Member Id] %s", memberId));
@@ -521,8 +523,6 @@ public class ClusterLevelPartitionContext extends PartitionContext implements Se
                 // add to the obsolete list
                 this.obsoletedMembers.put(memberId, terminationPendingMember);
 
-                terminationPendingStartedTime.put(memberId, System.currentTimeMillis());
-
                 if (log.isDebugEnabled()) {
                     log.debug(String.format("Termination pending member is removed and added to the " +
                             "obsolete member list. [Member Id] %s", memberId));
@@ -534,6 +534,15 @@ public class ClusterLevelPartitionContext extends PartitionContext implements Se
 
     public MemberContext getPendingTerminationMember(String memberId) {
         for (MemberContext memberContext : terminationPendingMembers) {
+            if (memberId.equals(memberContext.getMemberId())) {
+                return memberContext;
+            }
+        }
+        return null;
+    }
+
+    public MemberContext getObsoleteMember(String memberId) {
+        for (MemberContext memberContext : obsoletedMembers.values()) {
             if (memberId.equals(memberContext.getMemberId())) {
                 return memberContext;
             }
