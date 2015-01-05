@@ -35,7 +35,6 @@ import org.apache.stratos.autoscaler.context.member.MemberStatsContext;
 import org.apache.stratos.autoscaler.context.partition.ClusterLevelPartitionContext;
 import org.apache.stratos.autoscaler.context.partition.network.ClusterLevelNetworkPartitionContext;
 import org.apache.stratos.autoscaler.event.publisher.InstanceNotificationPublisher;
-import org.apache.stratos.autoscaler.monitor.cluster.AbstractClusterMonitor;
 import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitor;
 import org.apache.stratos.cloud.controller.stub.domain.MemberContext;
 
@@ -54,7 +53,7 @@ public class RuleTasksDelegator {
         double predictedValue;
 //        s = u * t + 0.5 * a * t * t
         if (log.isDebugEnabled()) {
-            log.debug(String.format("Predicting the value, [average]: %s , [gradient]: %s , [second derivative]" +
+            log.debug(String.format("Predicting the value, [average]: %s , [gradient]: %s , [second derivative] " +
                     ": %s , [time intervals]: %s ", average, gradient, secondDerivative, timeInterval));
         }
         predictedValue = average + gradient * timeInterval + 0.5 * secondDerivative * timeInterval * timeInterval;
@@ -84,56 +83,48 @@ public class RuleTasksDelegator {
     }
 
     public int getNumberOfInstancesRequiredBasedOnMemoryConsumption(float threshold, double predictedValue,
-                                                                    int max, int min) {
-        double numberOfAdditionalInstancesRequired = 0;
-        if(predictedValue != threshold) {
-
-            float scalingRange = 100 - threshold;
-            int instanceRange = max - min;
-
-            if(instanceRange != 0){
-
-                float gradient = scalingRange / instanceRange;
-                numberOfAdditionalInstancesRequired = (predictedValue - threshold) / gradient;
-            } else {
-
-                if(predictedValue > threshold) {
-                    return max + 1;
-                } else {
-                    return min - 1;
-                }
-            }
-        }
-        return (int) Math.ceil(min + numberOfAdditionalInstancesRequired);
-    }
-
-    public int getNumberOfInstancesRequiredBasedOnLoadAverage(float threshold, double predictedValue, int min) {
+                                                                    int activeInstanceCount) {
 
         double numberOfInstances;
         if(threshold != 0) {
 
-            numberOfInstances = (min * predictedValue) / threshold;
+            numberOfInstances = (activeInstanceCount * predictedValue) / threshold;
             return (int) Math.ceil(numberOfInstances);
         }
-        return min;
+        return activeInstanceCount;
     }
 
-    public int getMaxNumberOfInstancesRequired(int numberOfInstancesReuquiredBasedOnRif, int numberOfInstancesReuquiredBasedOnMemoryConsumption, boolean mcReset, int numberOfInstancesReuquiredBasedOnLoadAverage, boolean laReset) {
+    public int getNumberOfInstancesRequiredBasedOnLoadAverage(float threshold, double predictedValue,
+                                                              int activeInstanceCount) {
+
+        double numberOfInstances;
+        if(threshold != 0) {
+
+            numberOfInstances = (activeInstanceCount * predictedValue) / threshold;
+            return (int) Math.ceil(numberOfInstances);
+        }
+        return activeInstanceCount;
+    }
+
+    public int getMaxNumberOfInstancesRequired(int numberOfInstancesRequiredBasedOnRif,
+                                               int numberOfInstancesRequiredBasedOnMemoryConsumption,
+                                               boolean mcReset, int numberOfInstancesReuquiredBasedOnLoadAverage,
+                                               boolean laReset) {
         int numberOfInstances = 0;
 
         int rifBasedRequiredInstances = 0;
         int mcBasedRequiredInstances = 0;
         int laBasedRequiredInstances = 0;
         if (arspiIsSet) {
-            rifBasedRequiredInstances = numberOfInstancesReuquiredBasedOnRif;
+            rifBasedRequiredInstances = numberOfInstancesRequiredBasedOnRif;
         }
         if (mcReset) {
-            mcBasedRequiredInstances = numberOfInstancesReuquiredBasedOnMemoryConsumption;
+            mcBasedRequiredInstances = numberOfInstancesRequiredBasedOnMemoryConsumption;
         }
         if (laReset) {
             laBasedRequiredInstances = numberOfInstancesReuquiredBasedOnLoadAverage;
         }
-        numberOfInstances = Math.max(Math.max(numberOfInstancesReuquiredBasedOnMemoryConsumption, numberOfInstancesReuquiredBasedOnLoadAverage), numberOfInstancesReuquiredBasedOnRif);
+        numberOfInstances = Math.max(Math.max(numberOfInstancesRequiredBasedOnMemoryConsumption, numberOfInstancesReuquiredBasedOnLoadAverage), numberOfInstancesRequiredBasedOnRif);
         return numberOfInstances;
     }
 
@@ -203,7 +194,9 @@ public class RuleTasksDelegator {
                                     isPrimary,
                                     minimumCountOfNetworkPartition);
             if (memberContext != null) {
-                clusterMonitorPartitionContext.addPendingMember(memberContext);
+                ClusterLevelPartitionContext partitionContext = clusterInstanceContext.
+                        getPartitionCtxt(clusterMonitorPartitionContext.getPartitionId());
+                partitionContext.addPendingMember(memberContext);
                 if (log.isDebugEnabled()) {
                     log.debug(String.format("Pending member added, [member] %s [partition] %s", memberContext.getMemberId(),
                             memberContext.getPartition().getId()));
@@ -229,7 +222,7 @@ public class RuleTasksDelegator {
             log.debug("Scaling dependent notification is going to the [parentInstance] " + instanceId);
         }
         //Notify parent for checking scaling dependencies
-        AbstractClusterMonitor abstractClusterMonitor = AutoscalerContext.getInstance().getClusterMonitor(clusterId);
+        ClusterMonitor abstractClusterMonitor = AutoscalerContext.getInstance().getClusterMonitor(clusterId);
         float fMinimumInstanceCount = minimumInstanceCount;
         float factor = requiredInstanceCount / fMinimumInstanceCount;
         if (abstractClusterMonitor instanceof ClusterMonitor) {
@@ -243,11 +236,24 @@ public class RuleTasksDelegator {
             log.debug("Scaling max out notification is going to the [parentInstance] " + instanceId);
         }
         //Notify parent for checking scaling dependencies
-        AbstractClusterMonitor abstractClusterMonitor = AutoscalerContext.getInstance().getClusterMonitor(clusterId);
+        ClusterMonitor abstractClusterMonitor = AutoscalerContext.getInstance().getClusterMonitor(clusterId);
         if (abstractClusterMonitor instanceof ClusterMonitor) {
 
             ClusterMonitor clusterMonitor = (ClusterMonitor) abstractClusterMonitor;
             clusterMonitor.sendScalingOverMaxEvent(networkPartitionId, instanceId);
+        }
+    }
+
+    public void delegateScalingDownBeyondMinNotification(String clusterId, String networkPartitionId, String instanceId) {
+        if(log.isDebugEnabled()) {
+            log.debug("Scaling down lower min notification is going to the [parentInstance] " + instanceId);
+        }
+        //Notify parent for checking scaling dependencies
+        ClusterMonitor abstractClusterMonitor = AutoscalerContext.getInstance().getClusterMonitor(clusterId);
+        if (abstractClusterMonitor instanceof ClusterMonitor) {
+
+            ClusterMonitor clusterMonitor = (ClusterMonitor) abstractClusterMonitor;
+            clusterMonitor.sendScalingDownBeyondMinEvent(networkPartitionId, instanceId);
         }
     }
 
@@ -284,7 +290,7 @@ public class RuleTasksDelegator {
 
     public void terminateObsoleteInstance(String memberId) {
         try {
-            CloudControllerClient.getInstance().terminate(memberId);
+            CloudControllerClient.getInstance().terminateInstance(memberId);
         } catch (Throwable e) {
             log.error("Cannot terminate instance", e);
         }

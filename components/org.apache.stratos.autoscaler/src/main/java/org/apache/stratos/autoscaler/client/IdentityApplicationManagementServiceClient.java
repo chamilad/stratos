@@ -100,7 +100,7 @@ public class IdentityApplicationManagementServiceClient {
         OAuthConsumerAppDTO oAuthApplication = null;
         String accessToken;
 
-        oAuthApplication = oAuthAdminServiceClient.getServiceClient().getOAuthApplication(appName);
+        oAuthApplication = OAuthAdminServiceClient.getServiceClient().getOAuthApplication(appName);
 
         if(oAuthApplication == null){
             return null;
@@ -176,6 +176,12 @@ public class IdentityApplicationManagementServiceClient {
         return accessToken;
     }
 
+    public void removeApplication(String appName) throws RemoteException, IdentityApplicationManagementServiceIdentityApplicationManagementException {
+        if(log.isDebugEnabled()){
+            log.debug(String.format("Removing application %s", appName));
+        }
+        stub.deleteApplication(appName);
+    }
 
     private String getIdToken(String compositeAppId, String consumerKey, String consumerSecret) throws OAuthSystemException, OAuthProblemException {
         XMLConfiguration conf = ConfUtil.getInstance(null).getConfiguration();

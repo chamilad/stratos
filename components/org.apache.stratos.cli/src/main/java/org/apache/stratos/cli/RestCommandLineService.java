@@ -41,10 +41,10 @@ import org.apache.stratos.common.beans.autoscaler.policy.autoscale.AutoscalePoli
 import org.apache.stratos.common.beans.autoscaler.policy.deployment.DeploymentPolicy;
 import org.apache.stratos.common.beans.cartridge.definition.CartridgeDefinitionBean;
 import org.apache.stratos.common.beans.cartridge.definition.IaasProviderBean;
-import org.apache.stratos.common.beans.kubernetes.KubernetesGroup;
+import org.apache.stratos.common.beans.kubernetes.KubernetesCluster;
 import org.apache.stratos.common.beans.kubernetes.KubernetesHost;
 import org.apache.stratos.common.beans.topology.Cluster;
-import org.apache.stratos.manager.composite.application.beans.ApplicationDefinition;
+import org.apache.stratos.common.beans.ApplicationDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -326,12 +326,11 @@ public class RestCommandLineService {
             if(cartridge.getIaasProvider() != null) {
                 RowMapper<IaasProviderBean> cartridgeMapper = new RowMapper<IaasProviderBean>() {
                     public String[] getData(IaasProviderBean row) {
-                        String[] data = new String[5];
+                        String[] data = new String[4];
                         data[0] = row.getProvider();
                         data[1] = row.getType();
                         data[2] = row.getName();
                         data[3] = row.getImageId();
-                        data[4] = String.valueOf(row.getMaxInstanceLimit());
                         return data;
                     }
                 };
@@ -342,8 +341,7 @@ public class RestCommandLineService {
                 System.out.println("-------------------------------------");
                 System.out.println("IaaS Providers: ");
                 System.out.println("-------------------------------------");
-                CliUtils.printTable(iaasProviders, cartridgeMapper, "Provider", "Type", "Name", "Image ID",
-                        "Max Instance Limit");
+                CliUtils.printTable(iaasProviders, cartridgeMapper, "Provider", "Type", "Name", "Image ID");
             }
             System.out.println("-------------------------------------");
         } catch (Exception e) {
@@ -765,28 +763,28 @@ public class RestCommandLineService {
         try {
             Type listType = new TypeToken<ArrayList<KubernetesHost>>() {
             }.getType();
-            List<KubernetesGroup> list = (List<KubernetesGroup>) restClient.
+            List<KubernetesCluster> list = (List<KubernetesCluster>) restClient.
                     listEntity(ENDPOINT_LIST_KUBERNETES_CLUSTERS, listType, "kubernetes cluster");
             if ((list != null) && (list.size() > 0)) {
-                RowMapper<KubernetesGroup> partitionMapper = new RowMapper<KubernetesGroup>() {
-                    public String[] getData(KubernetesGroup kubernetesGroup) {
+                RowMapper<KubernetesCluster> partitionMapper = new RowMapper<KubernetesCluster>() {
+                    public String[] getData(KubernetesCluster kubernetesCluster) {
                         String[] data = new String[2];
-                        data[0] = kubernetesGroup.getGroupId();
-                        data[1] = kubernetesGroup.getDescription();
+                        data[0] = kubernetesCluster.getClusterId();
+                        data[1] = kubernetesCluster.getDescription();
                         return data;
                     }
                 };
 
-                KubernetesGroup[] array = new KubernetesGroup[list.size()];
+                KubernetesCluster[] array = new KubernetesCluster[list.size()];
                 array = list.toArray(array);
-                System.out.println("Kubernetes groups found:");
+                System.out.println("Kubernetes clusters found:");
                 CliUtils.printTable(array, partitionMapper, "Group ID", "Description");
             } else {
-                System.out.println("No kubernetes groups found");
+                System.out.println("No kubernetes clusters found");
                 return;
             }
         } catch (Exception e) {
-            String message = "Could not list kubernetes groups";
+            String message = "Could not list kubernetes clusters";
             printError(message, e);
         }
     }

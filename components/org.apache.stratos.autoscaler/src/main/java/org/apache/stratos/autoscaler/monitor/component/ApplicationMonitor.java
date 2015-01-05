@@ -31,9 +31,7 @@ import org.apache.stratos.autoscaler.exception.application.MonitorNotFoundExcept
 import org.apache.stratos.autoscaler.exception.application.TopologyInConsistentException;
 import org.apache.stratos.autoscaler.exception.policy.PolicyValidationException;
 import org.apache.stratos.autoscaler.monitor.Monitor;
-import org.apache.stratos.autoscaler.monitor.events.ApplicationStatusEvent;
-import org.apache.stratos.autoscaler.monitor.events.MonitorStatusEvent;
-import org.apache.stratos.autoscaler.monitor.events.ScalingEvent;
+import org.apache.stratos.autoscaler.monitor.events.*;
 import org.apache.stratos.autoscaler.monitor.events.builder.MonitorStatusEventBuilder;
 import org.apache.stratos.autoscaler.pojo.policy.PolicyManager;
 import org.apache.stratos.autoscaler.pojo.policy.deployment.DeploymentPolicy;
@@ -47,6 +45,7 @@ import org.apache.stratos.messaging.domain.topology.ClusterStatus;
 import org.apache.stratos.messaging.domain.topology.lifecycle.LifeCycleState;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ApplicationMonitor is to control the child monitors
@@ -68,9 +67,6 @@ public class ApplicationMonitor extends ParentComponentMonitor {
     @Override
     public void run() {
         try {
-            if (log.isDebugEnabled()) {
-                log.debug("Application monitor is running : " + this.toString());
-            }
             monitor();
         } catch (Exception e) {
             log.error("Application monitor failed : " + this.toString(), e);
@@ -85,7 +81,7 @@ public class ApplicationMonitor extends ParentComponentMonitor {
             @Override
             public void run() {
                 if (log.isDebugEnabled()) {
-                    log.debug("Application monitor is running====== : " + this.toString());
+                    log.debug("Application monitor is running for [application] " + appId + " =======");
                 }
                 for (NetworkPartitionContext networkPartitionContext : networkPartitionContexts) {
 
@@ -97,32 +93,16 @@ public class ApplicationMonitor extends ParentComponentMonitor {
                         if (instance.getStatus().getCode() <= GroupStatus.Active.getCode()) {
                             //Gives priority to scaling max out rather than dependency scaling
                             if (!instanceContext.getIdToScalingOverMaxEvent().isEmpty()) {
-                               if(networkPartitionContext.getPendingInstancesCount() == 0) {
-                                   //handling the application bursting only when there are no pending instances found
-                                   try {
-                                       if (log.isInfoEnabled()) {
-                                           log.info("Handling application busting, " +
-                                                   "since resources are exhausted in " +
-                                                   "this application instance ");
-                                       }
-                                       createInstanceOnBurstingForApplication();
-                                   } catch (TopologyInConsistentException e) {
-                                       log.error("Error while bursting the application", e);
-                                   } catch (PolicyValidationException e) {
-                                       log.error("Error while bursting the application", e);
-                                   } catch (MonitorNotFoundException e) {
-                                       log.error("Error while bursting the application", e);
-                                   }
-                               } else {
-                                   if(log.isDebugEnabled()) {
-                                       log.debug("Pending Application instance found. " +
-                                               "Hence waiting for it to become active");
-                                   }
-                               }
+                               //handling the scaling max out of the children
+                                handleScalingMaxOut(instanceContext, networkPartitionContext);
 
-                            } else {
+                            } else if(!instanceContext.getIdToScalingEvent().isEmpty()) {
+                                //handling the dependent scaling for application
                                 handleDependentScaling(instanceContext, networkPartitionContext);
 
+                            } else if(!instanceContext.getIdToScalingDownBeyondMinEvent().isEmpty()) {
+                                //handling the scale down of the application
+                                handleScalingDownBeyondMin(instanceContext, networkPartitionContext);
                             }
                         }
                     }
@@ -130,6 +110,62 @@ public class ApplicationMonitor extends ParentComponentMonitor {
             }
         };
         monitoringRunnable.run();
+    }
+
+    private void handleScalingMaxOut(InstanceContext instanceContext,
+                                     NetworkPartitionContext networkPartitionContext) {
+        if (networkPartitionContext.getPendingInstancesCount() == 0) {
+            //handling the application bursting only when there are no pending instances found
+            try {
+                if (log.isInfoEnabled()) {
+                    log.info("Handling application busting, " +
+                            "since resources are exhausted in " +
+                            "this application instance ");
+                }
+                handleApplicationBursting();
+            } catch (TopologyInConsistentException e) {
+                log.error("Error while bursting the application", e);
+            } catch (PolicyValidationException e) {
+                log.error("Error while bursting the application", e);
+            } catch (MonitorNotFoundException e) {
+                log.error("Error while bursting the application", e);
+            }
+        } else {
+            if (log.isDebugEnabled()) {
+                log.debug("Pending Application instance found. " +
+                        "Hence waiting for it to become active");
+            }
+        }
+        //Resetting the values
+        instanceContext.setIdToScalingOverMaxEvent(
+                new ConcurrentHashMap<String, ScalingUpBeyondMaxEvent>());
+
+    }
+
+    private void handleScalingDownBeyondMin(InstanceContext instanceContext,
+                                            NetworkPartitionContext nwPartitionContext) {
+        //Traverse through all the children to see whether all have sent the scale down
+        boolean allChildrenScaleDown = false;
+        for (Monitor monitor : this.aliasToActiveMonitorsMap.values()) {
+            if (instanceContext.getScalingDownBeyondMinEvent(monitor.getId()) == null) {
+                allChildrenScaleDown = false;
+                break;
+            } else {
+                allChildrenScaleDown = true;
+            }
+        }
+
+        //all the children sent the scale down only, it will try to scale down
+        if (allChildrenScaleDown) {
+            //Check whether this app monitor has bursted application
+            ApplicationBuilder.handleApplicationInstanceTerminatingEvent(this.appId,
+                    instanceContext.getId());
+        }
+
+        //Resetting the events
+        instanceContext.setIdToScalingDownBeyondMinEvent(
+                new ConcurrentHashMap<String, ScalingDownBeyondMinEvent>());
+
     }
 
 
@@ -319,7 +355,7 @@ public class ApplicationMonitor extends ParentComponentMonitor {
         return instanceId;
     }
 
-    public void createInstanceOnBurstingForApplication() throws TopologyInConsistentException,
+    public void handleApplicationBursting() throws TopologyInConsistentException,
             PolicyValidationException,
             MonitorNotFoundException {
         Application application = ApplicationHolder.getApplications().getApplication(appId);
@@ -406,7 +442,7 @@ public class ApplicationMonitor extends ParentComponentMonitor {
 
     @Override
     public void destroy() {
-        //TODO to wipe out the drools
+        stopScheduler();
     }
 
     @Override

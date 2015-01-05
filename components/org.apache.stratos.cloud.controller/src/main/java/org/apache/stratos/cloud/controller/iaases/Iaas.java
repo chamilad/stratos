@@ -20,7 +20,6 @@ package org.apache.stratos.cloud.controller.iaases;
 
 import org.apache.stratos.cloud.controller.domain.*;
 import org.apache.stratos.cloud.controller.exception.*;
-import org.apache.stratos.cloud.controller.iaases.validators.PartitionValidator;
 
 /**
  * All IaaSes that are going to support by Cloud Controller, should extend this abstract class.
@@ -39,6 +38,10 @@ public abstract class Iaas {
         return iaasProvider;
     }
 
+    /**
+     * Set iaas provider.
+     * @param iaasProvider
+     */
     public void setIaasProvider(IaasProvider iaasProvider) {
         this.iaasProvider = iaasProvider;
     }
@@ -54,7 +57,7 @@ public abstract class Iaas {
      * @param memberContext
      * @return updated memberContext
      */
-    public abstract MemberContext createInstance(MemberContext memberContext) throws CartridgeNotFoundException;
+    public abstract MemberContext startInstance(MemberContext memberContext) throws CartridgeNotFoundException;
 
     /**
      * This will deallocate/release the given IP address back to pool.
@@ -142,7 +145,13 @@ public abstract class Iaas {
      */
     public abstract String getIaasDevice(String device);
 
-    public abstract void allocateIpAddress(String clusterId, MemberContext memberContext, Partition partition);
+    /**
+     * Allocates ip addresses to member.
+     * @param clusterId
+     * @param memberContext
+     * @param partition
+     */
+    public abstract void allocateIpAddresses(String clusterId, MemberContext memberContext, Partition partition);
 
     /**
      * This method provides a way to set payload.
@@ -155,5 +164,5 @@ public abstract class Iaas {
      * @throws InvalidCartridgeTypeException
      * @throws InvalidMemberException
      */
-    public abstract void terminateInstance(MemberContext memberContext) throws InvalidCartridgeTypeException, InvalidMemberException;
+    public abstract void terminateInstance(MemberContext memberContext) throws InvalidCartridgeTypeException, InvalidMemberException, MemberTerminationFailedException;
 }

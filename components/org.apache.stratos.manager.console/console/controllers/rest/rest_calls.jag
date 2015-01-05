@@ -52,15 +52,15 @@ RESTCalls = new function(){
     };
 
     this.deployDeploymentPolicyDefinition = function(applicationID, policyDefinition){
-        return this.send("POST","/application/"+applicationID+"/deploy",policyDefinition);
+        return this.send("POST","/applications/"+applicationID+"/deploy",policyDefinition);
     };
 
     this.deployAutoscalePolicyDefinition = function(policyDefinition){
         return this.send("POST","/autoscalingPolicies",policyDefinition);
     };
 
-    this.deployKubernetesGroupDefinition = function(groupDefinition){
-        return this.send("POST","/kubernetesClusters",groupDefinition);
+    this.deployKubernetesClusterDefinition = function(clusterDefinition){
+        return this.send("POST","/kubernetesClusters",clusterDefinition);
     };
 
     this.deployGroupDefinition = function(groupDefinition){
@@ -73,6 +73,10 @@ RESTCalls = new function(){
 
     this.deleteApplication = function(applicationId){
         return this.send("DELETE","/applications/" + applicationId,{});
+    };
+
+    this.undeployApplication = function(applicationId){
+        return this.send("POST","/applications/"+applicationId+"/undeploy",{});
     };
 
     this.subscribeToCartridge = function(cartridgeBeanInfo){
@@ -100,7 +104,7 @@ RESTCalls = new function(){
         return this.sendReceive("GET","/policy/deployment",{});
     };
 
-    this.getKubernetesGroups = function(){
+    this.getKubernetesClusters = function(){
         return this.sendReceive("GET","/kubernetesClusters",{});
     };
 

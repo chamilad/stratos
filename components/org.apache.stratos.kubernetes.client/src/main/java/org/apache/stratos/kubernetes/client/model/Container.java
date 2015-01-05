@@ -20,7 +20,9 @@
  */
 package org.apache.stratos.kubernetes.client.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.commons.lang3.ArrayUtils;
 
@@ -31,59 +33,88 @@ public class Container {
 	private String workingDir;
 	private String[] command;
 	private VolumeMount[] volumeMounts;
-	private Port[] ports;
+	private List<Port> ports;
+	private String imagePullPolicy;
 	private EnvironmentVariable[] env;
-	
+
+	public Container() {
+		ports = new ArrayList<Port>();
+	}
+
 	public String getName() {
 		return name;
 	}
+
 	public void setName(String name) {
 		this.name = name;
 	}
+
 	public String getImage() {
 		return image;
 	}
+
 	public void setImage(String image) {
 		this.image = image;
 	}
+
 	public String getWorkingDir() {
 		return workingDir;
 	}
+
 	public void setWorkingDir(String workingDir) {
 		this.workingDir = workingDir;
 	}
+
 	public String[] getCommand() {
 		return command;
 	}
+
 	public void setCommand(String[] command) {
 		this.command = ArrayUtils.clone(command);
 	}
+
 	public VolumeMount[] getVolumeMounts() {
 		return volumeMounts;
 	}
+
 	public void setVolumeMounts(VolumeMount[] volumeMounts) {
 		this.volumeMounts = ArrayUtils.clone(volumeMounts);
 	}
-	public Port[] getPorts() {
+
+	public List<Port> getPorts() {
 		return ports;
 	}
-	public void setPorts(Port[] ports) {
-		this.ports = ArrayUtils.clone(ports);
+
+	public void addPort(Port port) {
+		this.ports.add(port);
 	}
+
+	public void setPorts(List<Port> ports) {
+		this.ports = ports;
+	}
+
 	public EnvironmentVariable[] getEnv() {
 		return env;
 	}
+
 	public void setEnv(EnvironmentVariable[] env) {
 		this.env = ArrayUtils.clone(env);
 	}
+
 	@Override
 	public String toString() {
 		return "Container [name=" + name + ", image=" + image + ", workingDir="
 				+ workingDir + ", command=" + Arrays.toString(command)
 				+ ", volumeMounts=" + Arrays.toString(volumeMounts)
-				+ ", ports=" + Arrays.toString(ports) + ", env="
+				+ ", ports=" + ports + ", env="
 				+ Arrays.toString(env) + "]";
 	}
-	
-	
+
+	public String getImagePullPolicy() {
+		return imagePullPolicy;
+	}
+
+	public void setImagePullPolicy(String imagePullPolicy) {
+		this.imagePullPolicy = imagePullPolicy;
+	}
 }

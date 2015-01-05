@@ -20,6 +20,8 @@
 package org.apache.stratos.cloud.controller.iaases;
 
 import com.google.common.collect.ImmutableSet;
+
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.cloud.controller.context.CloudControllerContext;
@@ -36,6 +38,8 @@ import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.rest.ResourceNotFoundException;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -74,11 +78,11 @@ public abstract class JcloudsIaas extends Iaas {
     public abstract boolean createKeyPairFromPublicKey(String region, String keyPairName, String publicKey);
 
     /**
-     * This will obtain an IP address from the allocated list and associate that IP with this node.
+     * This will obtain an IP addresses from the allocated list and associate that IP with this node.
      * @param node Node to be associated with an IP.
-     * @return associated public IP.
+     * @return return list of associated public IPs.
      */
-    public abstract String associateAddress(NodeMetadata node);
+    public abstract List<String> associateAddresses(NodeMetadata node);
 
     /**
      * This will obtain a predefined IP address and associate that IP with this node, if ip is already in use allocate ip from pool
@@ -99,7 +103,7 @@ public abstract class JcloudsIaas extends Iaas {
     }
 
     @Override
-    public MemberContext createInstance(MemberContext memberContext) {
+    public MemberContext startInstance(MemberContext memberContext) {
         // generate the group id from domain name and sub domain name.
         // Should have lower-case ASCII letters, numbers, or dashes.
         // Should have a length between 3-15
@@ -159,10 +163,12 @@ public abstract class JcloudsIaas extends Iaas {
         return instanceMetadata;
     }
 
-    public void allocateIpAddress(String clusterId, MemberContext memberContext, Partition partition) {
+    @Override
+    public void allocateIpAddresses(String clusterId, MemberContext memberContext, Partition partition) {
         try {
-            if (log.isDebugEnabled()) {
-                log.debug("IP allocation process started for " + memberContext);
+            if (log.isInfoEnabled()) {
+                log.info(String.format("Allocating IP addresses for member: [cartridge-type] %s [member-id] %s",
+                        memberContext.getCartridgeType(), memberContext.getMemberId()));
             }
 
             ComputeService computeService = getIaasProvider().getComputeService();
@@ -174,98 +180,97 @@ public abstract class JcloudsIaas extends Iaas {
             }
 
             String autoAssignIpProp = getIaasProvider().getProperty(CloudControllerConstants.AUTO_ASSIGN_IP_PROPERTY);
-            String preDefinedIp = getIaasProvider().getProperty(CloudControllerConstants.FLOATING_IP_PROPERTY);
-            String publicIp = "";
-            String ip = "";
+            String preDefinedPublicIp = getIaasProvider().getProperty(CloudControllerConstants.FLOATING_IP_PROPERTY);
+            List<String> associatedIPs = new ArrayList<String>();
 
             // default behavior is autoIpAssign=false
             if ((autoAssignIpProp == null) || ((autoAssignIpProp != null) && autoAssignIpProp.equals("false"))) {
 
-                // check if floating ip is well defined in cartridge definition
-                if (preDefinedIp != null) {
-                    if (CloudControllerServiceUtil.isValidIpAddress(preDefinedIp)) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("CloudControllerServiceImpl:IpAllocator:preDefinedIp: invoking associatePredefinedAddress" + preDefinedIp);
-                        }
-                        ip = associatePredefinedAddress(nodeMetadata, preDefinedIp);
+                if (StringUtils.isNotBlank(preDefinedPublicIp)) {
+                    // Allocate predefined public ip
+                    if(log.isDebugEnabled()) {
+                        log.debug(String.format("Allocating predefined public IP address: " +
+                                        "[cartridge-type] %s [member-id] %s [pre-defined-ip] %s",
+                                memberContext.getCartridgeType(), memberContext.getMemberId(),
+                                preDefinedPublicIp));
+                    }
 
-                        if (ip == null || "".equals(ip) || !preDefinedIp.equals(ip)) {
-                            // throw exception and stop instance creation
-                            String msg = "Error occurred while allocating predefined floating ip address: " + preDefinedIp +
-                                    " / allocated ip:" + ip +
-                                    " - terminating node:" + memberContext.toString();
-                            log.error(msg);
-                            // terminate instance
-                            destroyNode(nodeMetadata.getId(), memberContext);
-                            throw new CloudControllerException(msg);
-                        }
-                    } else {
-                        String msg = "Invalid floating ip address configured: " + preDefinedIp +
-                                " - terminating node:" + memberContext.toString();
+                    if (!CloudControllerServiceUtil.isValidIpAddress(preDefinedPublicIp)) {
+                        String msg = String.format("Predefined public IP address is not valid, hence terminating member: " +
+                                        "[cartridge-type] %s [member-id] %s [pre-defined-ip] %s",
+                                memberContext.getCartridgeType(), memberContext.getMemberId(),
+                                preDefinedPublicIp);
                         log.error(msg);
-                        // terminate instance
-                        destroyNode(nodeMetadata.getId(), memberContext);
+                        terminateInstance(memberContext);
                         throw new CloudControllerException(msg);
                     }
 
+                    String allocatedIp = associatePredefinedAddress(nodeMetadata, preDefinedPublicIp);
+                    if ((StringUtils.isBlank(allocatedIp)) || (!preDefinedPublicIp.equals(allocatedIp))) {
+                        String msg = String.format("Could not allocate predefined public IP address, " +
+                                        "hence terminating member: [cartridge-type] %s [member-id] %s " +
+                                        "[pre-defined-ip] %s [allocated-ip] %s",
+                                memberContext.getCartridgeType(), memberContext.getMemberId(),
+                                preDefinedPublicIp, allocatedIp);
+                        log.error(msg);
+                        terminateInstance(memberContext);
+                        throw new CloudControllerException(msg);
+                    }
+                    associatedIPs.add(allocatedIp);
                 } else {
-                    if (log.isDebugEnabled()) {
-                        log.debug("CloudControllerServiceImpl:IpAllocator:no (valid) predefined floating ip configured, "
-                                + "selecting available one from pool");
+                    // Allocate dynamic public ip addresses
+                    if(log.isDebugEnabled()) {
+                        log.debug(String.format("Allocating dynamic public IP addresses: " +
+                                        "[cartridge-type] %s [member-id] %s",
+                                memberContext.getCartridgeType(), memberContext.getMemberId()));
                     }
-                    // allocate an IP address - manual IP assigning mode
-                    ip = associateAddress(nodeMetadata);
+                    
+                    associatedIPs = associateAddresses(nodeMetadata);
 
-                    if (ip != null) {
-                        memberContext.setAllocatedIpAddress(ip);
-                        if (log.isDebugEnabled()) {
-                            log.debug("Allocated an ip address: "
-                                    + memberContext.toString());
-                        } else if (log.isInfoEnabled()) {
-                            log.info("Allocated ip address [ " + memberContext.getAllocatedIpAddress() +
-                                    " ] to member with id: " + memberContext.getMemberId());
-                        }
+                    // checking for null and empty is enough. If there are elements in this list, they are valid IPs
+                    // because we are validating before putting into the list
+                    if (associatedIPs == null || associatedIPs.isEmpty()) {
+                        String msg = String.format("Could not allocate dynamic public IP addresses, " +
+                                        "hence terminating member: [cartridge-type] %s [member-id] %s",
+                                memberContext.getCartridgeType(), memberContext.getMemberId(),
+                                preDefinedPublicIp);
+                        log.error(msg);
+                        terminateInstance(memberContext);
+                        throw new CloudControllerException(msg);
                     }
                 }
-
-                if (ip == null) {
-                    String msg = "No IP address found. IP allocation failed for " + memberContext;
-                    log.error(msg);
-                    throw new CloudControllerException(msg);
-                }
+                
+                memberContext.setAllocatedIPs(associatedIPs.toArray(new String[associatedIPs.size()]));
+                log.info(String.format("IP addresses allocated to member: [cartridge-type] %s [member-id] %s " +
+                                "[allocated-ip-addresses] %s ", memberContext.getCartridgeType(),
+                        memberContext.getMemberId(), memberContext.getAllocatedIPs()));
 
                 // build the node with the new ip
-                nodeMetadata = NodeMetadataBuilder.fromNodeMetadata(nodeMetadata)
-                        .publicAddresses(ImmutableSet.of(ip)).build();
+                nodeMetadata = NodeMetadataBuilder.fromNodeMetadata(nodeMetadata).publicAddresses(associatedIPs).build();
             }
 
 
-            // public ip
-            if (nodeMetadata.getPublicAddresses() != null &&
-                    nodeMetadata.getPublicAddresses().iterator().hasNext()) {
-                ip = nodeMetadata.getPublicAddresses().iterator().next();
-                publicIp = ip;
-                memberContext.setPublicIpAddress(ip);
-                if (log.isDebugEnabled()) {
-                    log.debug("Retrieving Public IP Address : " + memberContext.toString());
-                } else if (log.isInfoEnabled()) {
-                    log.info("Retrieving Public IP Address: " + memberContext.getPublicIpAddress() +
-                            ", member id: " + memberContext.getMemberId());
-                }
+            // public IPs
+            Set<String> publicIPAddresses = nodeMetadata.getPublicAddresses();
+            if (publicIPAddresses != null && !publicIPAddresses.isEmpty()) {
+            	memberContext.setPublicIPs(publicIPAddresses.toArray(new String[publicIPAddresses.size()]));
+            	//TODO set a flag in cartridge definition to specify the default public IP or the interface
+            	memberContext.setDefaultPublicIP(publicIPAddresses.iterator().next());
+            	log.info("Retrieving public IP addresses: " + memberContext.toString());
+            } else {
+            	memberContext.setPublicIPs(new String[0]);
             }
 
-            // private IP
-            if (nodeMetadata.getPrivateAddresses() != null &&
-                    nodeMetadata.getPrivateAddresses().iterator().hasNext()) {
-                ip = nodeMetadata.getPrivateAddresses().iterator().next();
-                memberContext.setPrivateIpAddress(ip);
-                if (log.isDebugEnabled()) {
-                    log.debug("Retrieving Private IP Address. " + memberContext.toString());
-                } else if (log.isInfoEnabled()) {
-                    log.info("Retrieving Private IP Address: " + memberContext.getPrivateIpAddress() +
-                            ", member id: " + memberContext.getMemberId());
-                }
-            }
+            // private IPs
+            Set<String> privateIPAddresses = nodeMetadata.getPrivateAddresses();
+            if (privateIPAddresses != null && !privateIPAddresses.isEmpty()) {
+            	memberContext.setPrivateIPs(privateIPAddresses.toArray(new String[privateIPAddresses.size()]));
+            	//TODO set a flag in cartridge definition to specify the default private IP or the interface
+            	memberContext.setDefaultPrivateIP(privateIPAddresses.iterator().next());
+            	log.info("Retrieving private IP addresses " + memberContext.toString());
+            } else {
+            	memberContext.setPrivateIPs(new String[0]);
+            } 
 
             CloudControllerContext.getInstance().updateMemberContext(memberContext);
 
@@ -275,15 +280,16 @@ public abstract class JcloudsIaas extends Iaas {
             if (log.isDebugEnabled()) {
                 log.debug("IP allocation process ended for " + memberContext);
             }
-
         } catch (Exception e) {
-            String msg = "Error occurred while allocating an ip address. " + memberContext.toString();
+            String msg = String.format("Error occurred while allocating ip addresses: [cartridge-type] %s " +
+                    "[member-id] %s", memberContext.getCartridgeType(), memberContext.getMemberId());
             log.error(msg, e);
             throw new CloudControllerException(msg, e);
         }
     }
 
-    public void terminateInstance(MemberContext memberContext) throws InvalidCartridgeTypeException, InvalidMemberException {
+    public void terminateInstance(MemberContext memberContext) throws InvalidCartridgeTypeException,
+            InvalidMemberException {
         String memberId = memberContext.getMemberId();
         String cartridgeType = memberContext.getCartridgeType();
         String nodeId = memberContext.getInstanceId();
@@ -332,9 +338,11 @@ public abstract class JcloudsIaas extends Iaas {
         // Destroy the node via jclouds
         getIaasProvider().getComputeService().destroyNode(nodeId);
 
-        // release allocated IP address
-        if (memberContext.getAllocatedIpAddress() != null) {
-            releaseAddress(memberContext.getAllocatedIpAddress());
+        // releasing all allocated IPs
+        if (memberContext.getAllocatedIPs() != null) {
+        	for (String allocatedIP : memberContext.getAllocatedIPs()) {
+        		releaseAddress(allocatedIP);
+        	}
         }
 
         if (log.isInfoEnabled()) {

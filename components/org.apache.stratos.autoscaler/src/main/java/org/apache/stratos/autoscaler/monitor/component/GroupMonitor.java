@@ -33,18 +33,17 @@ import org.apache.stratos.autoscaler.exception.application.DependencyBuilderExce
 import org.apache.stratos.autoscaler.exception.application.MonitorNotFoundException;
 import org.apache.stratos.autoscaler.exception.application.TopologyInConsistentException;
 import org.apache.stratos.autoscaler.monitor.Monitor;
-import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitor;
-import org.apache.stratos.autoscaler.monitor.events.GroupStatusEvent;
-import org.apache.stratos.autoscaler.monitor.events.MonitorStatusEvent;
-import org.apache.stratos.autoscaler.monitor.events.ScalingEvent;
-import org.apache.stratos.autoscaler.monitor.events.ScalingOverMaxEvent;
+import org.apache.stratos.autoscaler.monitor.events.*;
 import org.apache.stratos.autoscaler.monitor.events.builder.MonitorStatusEventBuilder;
 import org.apache.stratos.autoscaler.pojo.policy.PolicyManager;
 import org.apache.stratos.autoscaler.pojo.policy.deployment.ChildPolicy;
 import org.apache.stratos.autoscaler.pojo.policy.deployment.partition.network.ChildLevelNetworkPartition;
 import org.apache.stratos.autoscaler.pojo.policy.deployment.partition.network.ChildLevelPartition;
 import org.apache.stratos.autoscaler.util.ServiceReferenceHolder;
-import org.apache.stratos.messaging.domain.applications.*;
+import org.apache.stratos.messaging.domain.applications.Application;
+import org.apache.stratos.messaging.domain.applications.ApplicationStatus;
+import org.apache.stratos.messaging.domain.applications.Group;
+import org.apache.stratos.messaging.domain.applications.GroupStatus;
 import org.apache.stratos.messaging.domain.instance.GroupInstance;
 import org.apache.stratos.messaging.domain.instance.Instance;
 import org.apache.stratos.messaging.domain.topology.ClusterStatus;
@@ -54,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This is GroupMonitor to monitor the group which consists of
@@ -86,9 +86,6 @@ public class GroupMonitor extends ParentComponentMonitor {
     @Override
     public void run() {
         try {
-            if (log.isDebugEnabled()) {
-                log.debug("Group monitor is running : " + this.toString());
-            }
             monitor();
         } catch (Exception e) {
             log.error("Group monitor failed : " + this.toString(), e);
@@ -103,7 +100,7 @@ public class GroupMonitor extends ParentComponentMonitor {
             @Override
             public void run() {
                 if (log.isDebugEnabled()) {
-                    log.debug("Group monitor is running====== : " + this.toString());
+                    log.debug("Group monitor is running for the [group]: " + id + " ==============");
                 }
                 for (NetworkPartitionContext networkPartitionContext : networkPartitionContexts) {
 
@@ -115,69 +112,171 @@ public class GroupMonitor extends ParentComponentMonitor {
                         if (instance.getStatus().getCode() <= GroupStatus.Active.getCode()) {
                             //Gives priority to scaling max out rather than dependency scaling
                             if (!instanceContext.getIdToScalingOverMaxEvent().isEmpty()) {
-                                if(!hasScalingDependents) {
-                                    //handling the group scaling and if pending instances found,
-                                    // reject the max
-                                    if (groupScalingEnabled) {
-                                        if(networkPartitionContext.getPendingInstancesCount() == 0) {
-                                            //one of the child is loaded and max out.
-                                            // Hence creating new group instance
-                                            if(log.isDebugEnabled()) {
-                                                log.debug("Handling group scaling for the [group] " + id +
-                                                        "upon a max out event from " +
-                                                        "the children");
-                                            }
-                                            boolean createOnDemand = createInstanceOnDemand(instanceContext.
-                                                    getParentInstanceId());
-                                            if (!createOnDemand) {
-                                                //couldn't create new instance. Hence notifying the parent
-                                                MonitorStatusEventBuilder.handleScalingOverMaxEvent(parent,
-                                                        networkPartitionContext.getId(),
-                                                        instanceContext.getParentInstanceId(),
-                                                        appId);
-                                            }
-                                        } else {
-                                            if(log.isDebugEnabled()) {
-                                                log.debug("Pending Group instance found. " +
-                                                        "Hence waiting for it to become active");
-                                            }
-                                        }
+                                //handling the max out of the children
+                                handleScalingMaxOut(instanceContext, networkPartitionContext);
 
-                                    } else {
-                                        //notifying the parent if no group scaling enabled here
-                                        MonitorStatusEventBuilder.handleScalingOverMaxEvent(parent,
-                                                networkPartitionContext.getId(),
-                                                instanceContext.getParentInstanceId(),
-                                                appId);
-                                    }
-                                } else {
-                                    //has scaling dependents. Should notify the parent
-                                    if(log.isDebugEnabled()) {
-                                        log.debug("This [Group] " + id + " [scale-up] dependencies. " +
-                                                "Hence notifying the [parent] " + parent.getId() );
-                                    }
-                                    //notifying the parent when scale dependents found
-                                    MonitorStatusEventBuilder.handleScalingOverMaxEvent(parent,
-                                            networkPartitionContext.getId(),
-                                            instanceContext.getParentInstanceId(),
-                                            appId);
-                                }
-                                //Resetting the max events
-                                instanceContext.setIdToScalingOverMaxEvent(
-                                        new HashMap<String, ScalingOverMaxEvent>());
-                            } else {
+                            } else if (!instanceContext.getIdToScalingEvent().isEmpty()) {
+                                //handling the dependent scaling
                                 handleDependentScaling(instanceContext, networkPartitionContext);
+
+                            } else if (!instanceContext.getIdToScalingDownBeyondMinEvent().isEmpty()) {
+                                //scale down only when extra instances found
+                                handleScalingDownBeyondMin(instanceContext, networkPartitionContext);
                             }
                         }
-
-
                     }
-
-
                 }
             }
         };
         monitoringRunnable.run();
+    }
+
+    private void handleScalingMaxOut(InstanceContext instanceContext,
+                                     NetworkPartitionContext networkPartitionContext) {
+        if (!hasScalingDependents) {
+            //handling the group scaling and if pending instances found,
+            // reject the max
+            createGroupInstanceOnScaling(networkPartitionContext,
+                    instanceContext.getParentInstanceId());
+        } else {
+            notifyParentOnMaxOut(networkPartitionContext, instanceContext);
+        }
+        //Resetting the max events
+        instanceContext.setIdToScalingOverMaxEvent(
+                new ConcurrentHashMap<String, ScalingUpBeyondMaxEvent>());
+    }
+
+    private void handleScalingDownBeyondMin(InstanceContext instanceContext,
+                                            NetworkPartitionContext nwPartitionContext) {
+        //Traverse through all the children to see whether all have sent the scale down
+        boolean allChildrenScaleDown = false;
+        for (Monitor monitor : this.aliasToActiveMonitorsMap.values()) {
+            if (instanceContext.getScalingDownBeyondMinEvent(monitor.getId()) == null) {
+                allChildrenScaleDown = false;
+                break;
+            } else {
+                allChildrenScaleDown = true;
+            }
+        }
+        //all the children sent the scale down only, it will try to scale down
+        if (allChildrenScaleDown) {
+            if (hasScalingDependents) {
+                if (nwPartitionContext.getNonTerminatedInstancesCount() >
+                        ((GroupLevelNetworkPartitionContext)
+                                nwPartitionContext).getMinInstanceCount() ) {
+                    //Will scale down based on dependent manner
+                    float minInstances = ((GroupLevelNetworkPartitionContext)
+                            nwPartitionContext).getMinInstanceCount();
+                    float factor = (nwPartitionContext.getNonTerminatedInstancesCount() - 1)/minInstances;
+                    ScalingEvent scalingEvent = new ScalingEvent(this.id, nwPartitionContext.getId(),
+                                                        instanceContext.getId(),factor);
+                    this.parent.onChildScalingEvent(scalingEvent);
+                } else {
+                    //Parent has to handle this scale down as by dependent scale down
+                    ScalingDownBeyondMinEvent newScalingDownBeyondMinEvent = new ScalingDownBeyondMinEvent(this.id,
+                            nwPartitionContext.getId(), instanceContext.getParentInstanceId());
+                    this.parent.onChildScalingDownBeyondMinEvent(newScalingDownBeyondMinEvent);
+                }
+
+            } else {
+                if (groupScalingEnabled) {
+                    if (nwPartitionContext.getNonTerminatedInstancesCount() >
+                            ((GroupLevelNetworkPartitionContext)
+                                    nwPartitionContext).getMinInstanceCount()) {
+                        //send terminating to the specific group instance in the scale down
+                        ApplicationBuilder.handleGroupTerminatingEvent(this.appId, this.id,
+                                instanceContext.getId());
+                    }
+                } else {
+                    //Parent has to handle this scale down as by parent group scale down or application scale down
+                    ScalingDownBeyondMinEvent newScalingDownBeyondMinEvent = new ScalingDownBeyondMinEvent(this.id,
+                            nwPartitionContext.getId(), instanceContext.getParentInstanceId());
+                    this.parent.onChildScalingDownBeyondMinEvent(newScalingDownBeyondMinEvent);
+                }
+            }
+
+        }
+        //Resetting the events
+        instanceContext.setIdToScalingDownBeyondMinEvent(
+                new ConcurrentHashMap<String, ScalingDownBeyondMinEvent>());
+    }
+
+    private void createGroupInstanceOnScaling(final NetworkPartitionContext networkPartitionContext,
+                                              final String parentInstanceId) {
+        if (groupScalingEnabled) {
+            if (networkPartitionContext.getPendingInstancesCount() == 0) {
+                //one of the child is loaded and max out.
+                // Hence creating new group instance
+                if (log.isDebugEnabled()) {
+                    log.debug("Handling group scaling for the [group] " + id +
+                            "upon a max out event from " +
+                            "the children");
+                }
+                boolean createOnDemand = createInstanceOnDemand(parentInstanceId);
+                if (!createOnDemand) {
+                    //couldn't create new instance. Hence notifying the parent
+                    Runnable sendScaleMaxOut = new Runnable() {
+                        @Override
+                        public void run() {
+                            MonitorStatusEventBuilder.handleScalingOverMaxEvent(parent,
+                                    networkPartitionContext.getId(),
+                                    parentInstanceId,
+                                    appId);
+                        }
+                    };
+                    sendScaleMaxOut.run();
+                }
+            } else {
+                if (log.isDebugEnabled()) {
+                    log.debug("Pending Group instance found. " +
+                            "Hence waiting for it to become active");
+                }
+            }
+
+        } else {
+            //notifying the parent if no group scaling enabled here
+            Runnable sendScaleMaxOut = new Runnable() {
+                @Override
+                public void run() {
+                    MonitorStatusEventBuilder.handleScalingOverMaxEvent(parent,
+                            networkPartitionContext.getId(),
+                            parentInstanceId,
+                            appId);
+                }
+            };
+            sendScaleMaxOut.run();
+
+        }
+    }
+
+    private void notifyParentOnMaxOut(NetworkPartitionContext networkPartitionContext,
+                                      InstanceContext instanceContext) {
+        //has scaling dependents. Should notify the parent
+        if (log.isDebugEnabled()) {
+            log.debug("This [Group] " + id + " [scale-up] dependencies. " +
+                    "Hence notifying the [parent] " + parent.getId());
+        }
+        //notifying the parent when scale dependents found
+        int maxInstances = ((GroupLevelNetworkPartitionContext)
+                networkPartitionContext).getMaxInstanceCount();
+        if (groupScalingEnabled && maxInstances > networkPartitionContext.
+                getNonTerminatedInstancesCount()) {
+            //increase group by one more instance
+            float minInstances = ((GroupLevelNetworkPartitionContext)
+                    networkPartitionContext).getMinInstanceCount();
+
+            float factor = (minInstances + 1) / minInstances;
+            MonitorStatusEventBuilder.
+                    handleClusterScalingEvent(parent,
+                            networkPartitionContext.getId(),
+                            instanceContext.getParentInstanceId(),
+                            factor, id);
+        } else {
+            MonitorStatusEventBuilder.handleScalingOverMaxEvent(parent,
+                    networkPartitionContext.getId(),
+                    instanceContext.getParentInstanceId(),
+                    id);
+        }
     }
 
     /**
@@ -337,29 +436,33 @@ public class GroupMonitor extends ParentComponentMonitor {
 
     @Override
     public void onParentScalingEvent(ScalingEvent scalingEvent) {
-        //TODO group scaling, if there are enough spaces else notify the parent with max out
-        //Notifying children, if this group has scaling dependencies
-        if (scalingDependencies != null && !scalingDependencies.isEmpty()) {
-            for (ScalingDependentList scalingDependentList : scalingDependencies) {
-                if (scalingDependentList.getScalingDependentListComponents().
-                        contains(scalingEvent.getId())) {
-                    for (String scalingDependentListComponent : scalingDependentList
-                            .getScalingDependentListComponents()) {
-                        Monitor monitor = aliasToActiveMonitorsMap.get(
-                                scalingDependentListComponent);
-                        if (monitor instanceof GroupMonitor ||
-                                monitor instanceof ClusterMonitor) {
-                            ScalingEvent childScalingEvent = new ScalingEvent(monitor.getId(),
-                                    monitor.getId(),
-                                    scalingEvent.getInstanceId(),
-                                    scalingEvent.getFactor());
-                            monitor.onParentScalingEvent(childScalingEvent);
-                        }
-                    }
-                }
-                break;
+        //Parent notification always brings up new group instances in order to keep the ratio.
+        String networkPartitionId = scalingEvent.getNetworkPartitionId();
+        final String parentInstanceId = scalingEvent.getInstanceId();
+        final NetworkPartitionContext networkPartitionContext = this.networkPartitionCtxts.
+                get(networkPartitionId);
+
+        float factor = scalingEvent.getFactor();
+        int currentInstances = networkPartitionContext.getNonTerminatedInstancesCount();
+        float requiredInstances = factor * ((GroupLevelNetworkPartitionContext)
+                                networkPartitionContext).getMinInstanceCount();
+        float additionalInstances = requiredInstances - currentInstances;
+        if(additionalInstances >= 1) {
+            createGroupInstanceOnScaling(networkPartitionContext, parentInstanceId);
+        } else {
+            //have to scale down
+            if(networkPartitionContext.getPendingInstancesCount() != 0) {
+                ApplicationBuilder.handleGroupTerminatingEvent(appId, this.id,
+                        networkPartitionContext.getPendingInstances().get(0).getId());
+
+            } else {
+                List<InstanceContext> activeInstances = networkPartitionContext.getActiveInstances();
+                ApplicationBuilder.handleGroupTerminatingEvent(appId, this.id,
+                        activeInstances.get(activeInstances.size() - 1).toString());
             }
         }
+
+
     }
 
     public boolean isGroupScalingEnabled() {
@@ -562,8 +665,10 @@ public class GroupMonitor extends ParentComponentMonitor {
 
             // Create GroupInstance for partition instance and add to required contexts for minimum instance count
             int groupMin = group.getGroupMinInstances();
+            int groupMax = group.getGroupMaxInstances();
             //Setting the networkpartition minimum instances as group min instances
             groupLevelNetworkPartitionContext.setMinInstanceCount(groupMin);
+            groupLevelNetworkPartitionContext.setMaxInstanceCount(groupMax);
 
             //Have to check whether group has generated its own instances
             List<Instance> existingGroupInstances = group.getInstanceContextsWithParentId(parentInstanceId);

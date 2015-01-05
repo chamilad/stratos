@@ -32,7 +32,6 @@ import org.apache.stratos.autoscaler.exception.application.TopologyInConsistentE
 import org.apache.stratos.autoscaler.exception.partition.PartitionValidationException;
 import org.apache.stratos.autoscaler.exception.policy.PolicyValidationException;
 import org.apache.stratos.autoscaler.monitor.MonitorFactory;
-import org.apache.stratos.autoscaler.monitor.cluster.AbstractClusterMonitor;
 import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitor;
 import org.apache.stratos.autoscaler.monitor.component.ApplicationMonitor;
 import org.apache.stratos.autoscaler.monitor.events.ClusterStatusEvent;
@@ -168,7 +167,7 @@ public class AutoscalerTopologyEventReceiver {
                 String clusterId = clusterActivatedEvent.getClusterId();
                 String instanceId = clusterActivatedEvent.getInstanceId();
                 AutoscalerContext asCtx = AutoscalerContext.getInstance();
-                AbstractClusterMonitor monitor;
+                ClusterMonitor monitor;
                 monitor = asCtx.getClusterMonitor(clusterId);
                 if (null == monitor) {
                     if (log.isDebugEnabled()) {
@@ -191,7 +190,7 @@ public class AutoscalerTopologyEventReceiver {
                 String clusterId = clusterResetEvent.getClusterId();
                 String instanceId = clusterResetEvent.getInstanceId();
                 AutoscalerContext asCtx = AutoscalerContext.getInstance();
-                AbstractClusterMonitor monitor;
+                ClusterMonitor monitor;
                 monitor = asCtx.getClusterMonitor(clusterId);
                 if (null == monitor) {
                     if (log.isDebugEnabled()) {
@@ -222,7 +221,7 @@ public class AutoscalerTopologyEventReceiver {
                 String clusterId = clusterInactivateEvent.getClusterId();
                 String instanceId = clusterInactivateEvent.getInstanceId();
                 AutoscalerContext asCtx = AutoscalerContext.getInstance();
-                AbstractClusterMonitor monitor;
+                ClusterMonitor monitor;
                 monitor = asCtx.getClusterMonitor(clusterId);
                 if (null == monitor) {
                     if (log.isDebugEnabled()) {
@@ -242,9 +241,9 @@ public class AutoscalerTopologyEventReceiver {
                 log.info("[ClusterTerminatingEvent] Received: " + event.getClass());
                 ClusterInstanceTerminatingEvent clusterTerminatingEvent = (ClusterInstanceTerminatingEvent) event;
                 String clusterId = clusterTerminatingEvent.getClusterId();
-                String instanceId = clusterTerminatingEvent.getInstanceId();
+                String clusterInstanceId = clusterTerminatingEvent.getInstanceId();
                 AutoscalerContext asCtx = AutoscalerContext.getInstance();
-                AbstractClusterMonitor monitor;
+                ClusterMonitor monitor;
                 monitor = asCtx.getClusterMonitor(clusterId);
                 if (null == monitor) {
                     if (log.isDebugEnabled()) {
@@ -253,22 +252,22 @@ public class AutoscalerTopologyEventReceiver {
                     }
                     // if monitor does not exist, send cluster terminated event
                     ClusterStatusEventPublisher.sendClusterTerminatedEvent(clusterTerminatingEvent.getAppId(),
-                            clusterTerminatingEvent.getServiceName(), clusterId, instanceId);
+                            clusterTerminatingEvent.getServiceName(), clusterId, clusterInstanceId);
                     return;
                 }
                 //changing the status in the monitor, will notify its parent monitor
-                ClusterInstance clusterInstance = (ClusterInstance) monitor.getInstance(instanceId);
-                if (clusterInstance.getCurrentState() == ClusterStatus.Active) {
+                ClusterInstance clusterInstance = (ClusterInstance) monitor.getInstance(clusterInstanceId);
+                if (clusterInstance.getPreviousState() == ClusterStatus.Active) {
                     // terminated gracefully
-                    monitor.notifyParentMonitor(ClusterStatus.Terminating, instanceId);
+                    monitor.notifyParentMonitor(ClusterStatus.Terminating, clusterInstanceId);
                     InstanceNotificationPublisher.getInstance().
-                            sendInstanceCleanupEventForCluster(clusterId, instanceId);
+                            sendInstanceCleanupEventForCluster(clusterId, clusterInstanceId);
                 } else {
-                    monitor.notifyParentMonitor(ClusterStatus.Terminating, instanceId);
-                    monitor.terminateAllMembers(instanceId, clusterInstance.getNetworkPartitionId());
+                    monitor.notifyParentMonitor(ClusterStatus.Terminating, clusterInstanceId);
+                    monitor.terminateAllMembers(clusterInstanceId, clusterInstance.getNetworkPartitionId());
                 }
                 ServiceReferenceHolder.getInstance().getClusterStatusProcessorChain().
-                        process("", clusterId, instanceId);
+                        process("", clusterId, clusterInstanceId);
             }
         });
 
@@ -280,7 +279,7 @@ public class AutoscalerTopologyEventReceiver {
                 String clusterId = clusterTerminatedEvent.getClusterId();
                 String instanceId = clusterTerminatedEvent.getInstanceId();
                 AutoscalerContext asCtx = AutoscalerContext.getInstance();
-                AbstractClusterMonitor monitor;
+                ClusterMonitor monitor;
                 ApplicationMonitor appMonitor = null;
                 monitor = asCtx.getClusterMonitor(clusterId);
                 appMonitor = AutoscalerContext.getInstance().
@@ -325,7 +324,7 @@ public class AutoscalerTopologyEventReceiver {
                     MemberReadyToShutdownEvent memberReadyToShutdownEvent = (MemberReadyToShutdownEvent) event;
                     String clusterId = memberReadyToShutdownEvent.getClusterId();
                     AutoscalerContext asCtx = AutoscalerContext.getInstance();
-                    AbstractClusterMonitor monitor;
+                    ClusterMonitor monitor;
                     monitor = asCtx.getClusterMonitor(clusterId);
                     if (null == monitor) {
                         if (log.isDebugEnabled()) {
@@ -356,7 +355,7 @@ public class AutoscalerTopologyEventReceiver {
                 try {
                     MemberTerminatedEvent memberTerminatedEvent = (MemberTerminatedEvent) event;
                     String clusterId = memberTerminatedEvent.getClusterId();
-                    AbstractClusterMonitor monitor;
+                    ClusterMonitor monitor;
                     AutoscalerContext asCtx = AutoscalerContext.getInstance();
                     monitor = asCtx.getClusterMonitor(clusterId);
                     if (null == monitor) {
@@ -380,7 +379,7 @@ public class AutoscalerTopologyEventReceiver {
                 try {
                     MemberActivatedEvent memberActivatedEvent = (MemberActivatedEvent) event;
                     String clusterId = memberActivatedEvent.getClusterId();
-                    AbstractClusterMonitor monitor;
+                    ClusterMonitor monitor;
                     AutoscalerContext asCtx = AutoscalerContext.getInstance();
                     monitor = asCtx.getClusterMonitor(clusterId);
                     if (null == monitor) {
@@ -404,7 +403,7 @@ public class AutoscalerTopologyEventReceiver {
                 try {
                     MemberMaintenanceModeEvent maintenanceModeEvent = (MemberMaintenanceModeEvent) event;
                     String clusterId = maintenanceModeEvent.getClusterId();
-                    AbstractClusterMonitor monitor;
+                    ClusterMonitor monitor;
                     AutoscalerContext asCtx = AutoscalerContext.getInstance();
                     monitor = asCtx.getClusterMonitor(clusterId);
                     if (null == monitor) {
@@ -428,7 +427,7 @@ public class AutoscalerTopologyEventReceiver {
 
                ClusterInstanceCreatedEvent clusterInstanceCreatedEvent =
                        (ClusterInstanceCreatedEvent) event;
-               AbstractClusterMonitor clusterMonitor = AutoscalerContext.getInstance().
+               ClusterMonitor clusterMonitor = AutoscalerContext.getInstance().
                        getClusterMonitor(clusterInstanceCreatedEvent.getClusterId());
                ClusterInstance clusterInstance = ((ClusterInstanceCreatedEvent) event).
                                                     getClusterInstance();

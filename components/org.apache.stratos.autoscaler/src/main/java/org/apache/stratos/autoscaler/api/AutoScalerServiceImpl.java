@@ -36,7 +36,7 @@ import org.apache.stratos.autoscaler.exception.kubernetes.InvalidServiceGroupExc
 import org.apache.stratos.autoscaler.exception.partition.PartitionValidationException;
 import org.apache.stratos.autoscaler.exception.policy.InvalidPolicyException;
 import org.apache.stratos.autoscaler.interfaces.AutoScalerServiceInterface;
-import org.apache.stratos.autoscaler.monitor.cluster.AbstractClusterMonitor;
+import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitor;
 import org.apache.stratos.autoscaler.pojo.Dependencies;
 import org.apache.stratos.autoscaler.pojo.ServiceGroup;
 import org.apache.stratos.autoscaler.pojo.policy.PolicyManager;
@@ -70,7 +70,6 @@ import java.util.Set;
 public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
 
     private static final Log log = LogFactory.getLog(AutoScalerServiceImpl.class);
-
 
     public AutoscalePolicy[] getAutoScalingPolicies() {
         return PolicyManager.getInstance().getAutoscalePolicyList();
@@ -166,7 +165,7 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
             throws ApplicationDefinitionException {
 
         if(log.isInfoEnabled()) {
-            log.info(String.format("Starting to add application: [application-id] %s",
+            log.info(String.format("Adding application: [application-id] %s",
                     applicationContext.getApplicationId()));
         }
 
@@ -192,7 +191,7 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
     }
 
     @Override
-    public boolean deployApplication(String applicationId, DeploymentPolicy policy) throws ApplicationDefinitionException {
+    public boolean deployApplication(String applicationId, DeploymentPolicy deploymentPolicy) throws ApplicationDefinitionException {
         try {
             ApplicationContext applicationContext = RegistryManager.getInstance().getApplicationContext(applicationId);
             if (applicationContext == null) {
@@ -204,23 +203,25 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
             ApplicationBuilder.handleApplicationCreated(application, applicationParser.getApplicationClusterContexts());
 
             try {
-                PolicyManager.getInstance().addDeploymentPolicy(policy);
+                // Update kubernetes cluster ids
+                updateKubernetesClusterIds(deploymentPolicy);
+                // Validate deployment policy via cloud controller
+                validateDeploymentPolicy(deploymentPolicy);
+                // Add deployment policy
+                PolicyManager.getInstance().addDeploymentPolicy(deploymentPolicy);
                 applicationContext.setStatus(ApplicationContext.STATUS_DEPLOYED);
                 AutoscalerContext.getInstance().updateApplicationContext(applicationContext);
             } catch (InvalidPolicyException e) {
-                String message = "Deployment policy is not valid: [application-id] " + policy.getApplicationId();
+                String message = "Deployment policy is not valid: [application-id] " + deploymentPolicy.getApplicationId();
                 log.error(message, e);
                 throw new RuntimeException(message, e);
             }
 
-            //Need to start the application Monitor after validation of the deployment policies.
-            //FIXME add validation
-            validateDeploymentPolicy(policy);
             //Check whether all the clusters are there
             boolean allClusterInitialized = false;
             try {
                 ApplicationHolder.acquireReadLock();
-                application = ApplicationHolder.getApplications().getApplication(policy.getApplicationId());
+                application = ApplicationHolder.getApplications().getApplication(deploymentPolicy.getApplicationId());
                 if (application != null) {
                     allClusterInitialized = AutoscalerUtil.allClustersInitialized(application);
                 }
@@ -253,18 +254,81 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
         }
     }
 
+    /**
+     * Overwrite partition's kubernetes cluster ids with network partition's kubernetes cluster ids.
+     * @param deploymentPolicy
+     */
+    private void updateKubernetesClusterIds(DeploymentPolicy deploymentPolicy) {
+        ApplicationLevelNetworkPartition[] networkPartitions =
+                deploymentPolicy.getApplicationLevelNetworkPartitions();
+        if(networkPartitions != null) {
+            for(ApplicationLevelNetworkPartition networkPartition : networkPartitions) {
+                if(StringUtils.isNotBlank(networkPartition.getKubernetesClusterId())) {
+                    Partition[] partitions = networkPartition.getPartitions();
+                    if(partitions != null) {
+                        for(Partition partition : partitions) {
+                            if(partition != null) {
+                                if(log.isInfoEnabled()) {
+                                    log.info(String.format("Overwriting partition's kubernetes cluster id: " +
+                                                    "[application-id] %s [network-partition-id] %s [partition-id] %s " +
+                                                    "[kubernetes-cluster-id] %s",
+                                            deploymentPolicy.getApplicationId(), networkPartition.getId(),
+                                            partition.getId(), networkPartition.getKubernetesClusterId()));
+                                }
+                                partition.setKubernetesClusterId(networkPartition.getKubernetesClusterId());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Override
     public void undeployApplication(String applicationId) {
-        ApplicationBuilder.handleApplicationUndeployed(applicationId);
+        try {
+            if (log.isInfoEnabled()) {
+                log.info("Starting to undeploy application: [application-id] " + applicationId);
+            }
 
-        ApplicationContext applicationContext = AutoscalerContext.getInstance().getApplicationContext(applicationId);
-        applicationContext.setStatus(ApplicationContext.STATUS_CREATED);
-        AutoscalerContext.getInstance().updateApplicationContext(applicationContext);
+            ApplicationBuilder.handleApplicationUndeployed(applicationId);
+
+            ApplicationContext applicationContext = AutoscalerContext.getInstance().getApplicationContext(applicationId);
+            applicationContext.setStatus(ApplicationContext.STATUS_CREATED);
+            AutoscalerContext.getInstance().updateApplicationContext(applicationContext);
+
+            DeploymentPolicy deploymentPolicy = PolicyManager.getInstance().getDeploymentPolicy(applicationId);
+            PolicyManager.getInstance().removeDeploymentPolicy(deploymentPolicy);
+
+            if (log.isInfoEnabled()) {
+                log.info("Application undeployed successfully: [application-id] " + applicationId);
+            }
+        } catch (Exception e) {
+            String message = "Could not undeploy application: [application-id] " + applicationId;
+            log.error(message, e);
+            throw new RuntimeException(message, e);
+        }
     }
 
     @Override
     public void deleteApplication(String applicationId) {
         AutoscalerContext.getInstance().removeApplicationContext(applicationId);
+        //TODO oAuth application/service provider deletion is removed since app name is random. It should be equal to
+        // name of the composite application.
+        /*
+        try {
+            oAuthAdminServiceClient.getServiceClient().removeOauthApplication(applicationId);
+            IdentityApplicationManagementServiceClient.getServiceClient().removeApplication(applicationId);
+        } catch (RemoteException e) {
+           log.error(String.format("Error ocured while deleting oAuth application %s", applicationId), e);
+            throw new AutoScalerException(e);
+        } catch (OAuthAdminServiceException e) {
+            log.error(String.format("Error ocured while deleting oAuth application %s", applicationId), e);
+            throw new AutoScalerException(e);
+        } catch (IdentityApplicationManagementServiceIdentityApplicationManagementException e) {
+            e.printStackTrace();
+        }
+        */
         if(log.isInfoEnabled()) {
             log.info(String.format("Application deleted successfully: [application-id] ",
                     applicationId));
@@ -276,7 +340,7 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
             log.debug(String.format("Updating Cluster monitor [Cluster id] %s ", clusterId));
         }
         AutoscalerContext asCtx = AutoscalerContext.getInstance();
-        AbstractClusterMonitor monitor = asCtx.getClusterMonitor(clusterId);
+        ClusterMonitor monitor = asCtx.getClusterMonitor(clusterId);
 
         if (monitor != null) {
             monitor.handleDynamicUpdates(properties);
@@ -296,7 +360,7 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
         }
 
         if(log.isInfoEnabled()) {
-            log.info(String.format("Starting to add service group: [group-name] %s", servicegroup.getName()));
+            log.info(String.format("Adding service group: [group-name] %s", servicegroup.getName()));
         }
         String groupName = servicegroup.getName();
         if (RegistryManager.getInstance().serviceGroupExist(groupName)) {
@@ -413,7 +477,8 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
                 Properties properties = entry.getValue();
                 if (properties != null) {
                     for (Property property : properties.getProperties()) {
-                        metaDataServiceClien.addPropertyToCluster(appId, alias, property.getName(), property.getValue());
+                        metaDataServiceClien.addPropertyToCluster(appId, alias, property.getName(),
+                                String.valueOf(property.getValue()));
                     }
                 }
             }

@@ -20,8 +20,9 @@
 package org.apache.stratos.cloud.controller.iaases.mock;
 
 import org.apache.stratos.cloud.controller.domain.IaasProvider;
+import org.apache.stratos.cloud.controller.domain.Partition;
 import org.apache.stratos.cloud.controller.exception.InvalidPartitionException;
-import org.apache.stratos.cloud.controller.iaases.validators.PartitionValidator;
+import org.apache.stratos.cloud.controller.iaases.PartitionValidator;
 
 import java.util.Properties;
 
@@ -38,7 +39,7 @@ public class MockPartitionValidator implements PartitionValidator {
     }
 
     @Override
-    public IaasProvider validate(String partitionId, Properties properties) throws InvalidPartitionException {
+    public IaasProvider validate(Partition partition, Properties properties) throws InvalidPartitionException {
         return iaasProvider;
     }
 }

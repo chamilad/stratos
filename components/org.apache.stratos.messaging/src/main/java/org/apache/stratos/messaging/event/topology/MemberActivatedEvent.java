@@ -38,24 +38,24 @@ public class MemberActivatedEvent extends TopologyEvent implements Serializable 
     private final String clusterId;
     private final String clusterInstanceId;
     private final String memberId;
-    private final String instanceId;
     private final String networkPartitionId;
     private final String partitionId;
 
     // Key: Port.proxy
     private Map<Integer, Port> portMap;
-    private String memberIp;
+    private List<String> memberPrivateIPs;
+    private String defaultPrivateIP;
     private String groupId;
     private String applicationId;
-    private String memberPublicIp;
+    private List<String> memberPublicIPs;
+    private String defaultPublicIP;
 
     public MemberActivatedEvent(String serviceName, String clusterId, String clusterInstanceId, String memberId,
-                                String instanceId, String networkPartitionId, String partitionId) {
+                                String networkPartitionId, String partitionId) {
         this.serviceName = serviceName;
         this.clusterId = clusterId;
         this.clusterInstanceId = clusterInstanceId;
         this.memberId = memberId;
-        this.instanceId = instanceId;
         this.networkPartitionId = networkPartitionId;
         this.partitionId = partitionId;
         this.portMap = new HashMap<Integer, Port>();
@@ -109,13 +109,21 @@ public class MemberActivatedEvent extends TopologyEvent implements Serializable 
     public boolean portExists(Port port) {
         return this.portMap.containsKey(port.getProxy());
     }
-
-    public String getMemberIp() {
-        return memberIp;
+    
+    public List<String> getMemberPrivateIPs() {
+    	return memberPrivateIPs;
+    }
+    
+    public void setMemberPrivateIPs(List<String> memberPrivateIPs) {
+    	this.memberPrivateIPs = memberPrivateIPs;
     }
 
-    public void setMemberIp(String memberIp) {
-        this.memberIp = memberIp;
+    public String getDefaultPrivateIP() {
+        return defaultPrivateIP;
+    }
+
+    public void setDefaultPrivateIP(String defaultPrivateIP) {
+        this.defaultPrivateIP = defaultPrivateIP;
     }
 
     public String getGroupId() {
@@ -133,17 +141,21 @@ public class MemberActivatedEvent extends TopologyEvent implements Serializable 
     public void setApplicationId(String applicationId) {
         this.applicationId = applicationId;
     }
-
-    public String getMemberPublicIp() {
-        return memberPublicIp;
+    
+    public List<String> getMemberPublicIPs() {
+    	return memberPublicIPs;
+    }
+    
+    public void setMemberPublicIPs(List<String> memberPublicIp) {
+    	this.memberPublicIPs = memberPublicIp;
     }
 
-    public void setMemberPublicIp(String memberPublicIp) {
-        this.memberPublicIp = memberPublicIp;
+    public String getDefaultPublicIP() {
+        return defaultPublicIP;
     }
 
-    public String getInstanceId() {
-        return instanceId;
+    public void setDefaultPublicIP(String defaultPublicIP) {
+        this.defaultPublicIP = defaultPublicIP;
     }
 
     public String getClusterInstanceId() {

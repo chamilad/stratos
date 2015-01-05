@@ -23,10 +23,21 @@ package org.apache.stratos.kubernetes.client.interfaces;
 import org.apache.stratos.kubernetes.client.exceptions.KubernetesClientException;
 import org.apache.stratos.kubernetes.client.model.*;
 
+import java.util.List;
+
 
 public interface KubernetesAPIClientInterface {
-	
-	/* Pod API */
+
+	/**
+	 * Create pod.
+	 * @param podId
+	 * @param podName
+	 * @param dockerImage
+	 * @param containerPorts
+	 * @throws KubernetesClientException
+	 */
+	public void createPod(String podId, String podName, String dockerImage, List<Integer> containerPorts)
+			throws KubernetesClientException;
 
 	/**
 	 * Get information of a Pod given the PodID
@@ -35,38 +46,45 @@ public interface KubernetesAPIClientInterface {
 	 * @throws KubernetesClientException
 	 */
 	public Pod getPod(String podId) throws KubernetesClientException;
-	
+
 	/**
 	 * Get all Pods
 	 * @return Pods
 	 * @throws KubernetesClientException
 	 */
-	public Pod[] getAllPods() throws KubernetesClientException;
-	
+	public List<Pod> getPods() throws KubernetesClientException;
+
 	/**
 	 * Run a label query and retrieve a sub set of Pods.
-	 * @param label of labels for the label query
+	 * @param labels of labels for the label query
 	 * @return Pods selected Pods by executing the label query.
 	 * @throws KubernetesClientException
 	 */
-	public Pod[] queryPods(Label[] label) throws KubernetesClientException;
-	
-	/**
-	 * Create a new Pod
-	 * @param pod Pod to be created
-	 * @throws KubernetesClientException
-	 */
-	public void createPod(Pod pod) throws KubernetesClientException;
-	
+	public List<Pod> queryPods(Labels[] labels) throws KubernetesClientException;
+
 	/**
 	 * Delete a Pod
 	 * @param podId Id of the Pod to be deleted
 	 * @throws KubernetesClientException
 	 */
 	public void deletePod(String podId) throws KubernetesClientException;
-	
-	/* Replication Controller API */
-	
+
+	/**
+	 * Create replication controller.
+	 * @param replicationControllerId
+	 * @param replicationControllerName
+	 * @param dockerImage
+	 * @param containerPorts
+	 * @param replicas
+	 * @throws KubernetesClientException
+	 */
+	public void createReplicationController(String replicationControllerId,
+															 String replicationControllerName,
+															 String dockerImage,
+															 List<Integer> containerPorts,
+															 EnvironmentVariable[] environmentVariables,
+															 int replicas) throws KubernetesClientException;
+
 	/**
 	 * Get a Replication Controller Info
 	 * @param controllerId id of the Replication Controller
@@ -80,32 +98,34 @@ public interface KubernetesAPIClientInterface {
 	 * @return {@link ReplicationController}s
 	 * @throws KubernetesClientException
 	 */
-	public ReplicationController[] getAllReplicationControllers() throws KubernetesClientException;
-	
-	/**
-	 * Create a new Replication Controller
-	 * @param controller controller to be created
-	 * @throws KubernetesClientException
-	 */
-	public void createReplicationController(ReplicationController controller) throws KubernetesClientException;
-	
+	public List<ReplicationController> getReplicationControllers() throws KubernetesClientException;
+
 	/**
 	 * Update a Replication Controller (update the number of replicas).
-	 * @param controllerId id of the controller to be updated
-	 * @param replicas update the replicas count of the current controller.
+	 * @param replicationController replication controller to be updated
 	 * @throws KubernetesClientException
 	 */
-	public void updateReplicationController(String controllerId, int replicas) throws KubernetesClientException;
+	public void updateReplicationController(ReplicationController replicationController) throws KubernetesClientException;
 	
 	/**
 	 * Delete a Replication Controller.
-	 * @param controllerId controller id controller id to be deleted.
+	 * @param replicationControllerId controller id controller id to be deleted.
 	 * @throws KubernetesClientException
 	 */
-	public void deleteReplicationController(String controllerId) throws KubernetesClientException;
-	
-	/* Services API */
-	
+	public void deleteReplicationController(String replicationControllerId) throws KubernetesClientException;
+
+	/**
+	 * Create service.
+	 * @param serviceId
+	 * @param serviceName
+	 * @param servicePort
+	 * @param containerPort
+	 * @param publicIp
+	 * @throws KubernetesClientException
+	 */
+	public void createService(String serviceId, String serviceName, int servicePort,
+								 int containerPort, String publicIp) throws KubernetesClientException;
+
 	/**
 	 * Get the Service with the given id.
 	 * @param serviceId id of the service.
@@ -115,21 +135,14 @@ public interface KubernetesAPIClientInterface {
 	public Service getService(String serviceId) throws KubernetesClientException;
 	
 	/**
-	 * Get all the services.
+	 * Get services.
 	 * @return array of {@link Service}s
 	 * @throws KubernetesClientException
 	 */
-	public Service[] getAllServices() throws KubernetesClientException;
+	public List<Service> getServices() throws KubernetesClientException;
 	
 	/**
-	 * Create a new Kubernetes service.
-	 * @param service service to be created.
-	 * @throws KubernetesClientException
-	 */
-	public void createService(Service service) throws KubernetesClientException;
-	
-	/**
-	 * Delete a Service.
+	 * Delete a service.
 	 * @param serviceId service id to be deleted.
  	 * @throws KubernetesClientException
 	 */

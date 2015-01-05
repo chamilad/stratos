@@ -104,8 +104,9 @@ class CartridgeAgent(threading.Thread):
         if repo_url is None or str(repo_url).strip() == "":
             self.log.info("No artifact repository found")
             CartridgeAgent.extension_handler.on_instance_activated_event()
-
             cartridgeagentpublisher.publish_instance_activated_event()
+        else:
+            self.log.info("Artifact repository found, waiting for artifact updated event to checkout artifacts: [repo_url] %s", repo_url)
 
         persistence_mappping_payload = self.cartridge_agent_config.persistence_mappings
         if persistence_mappping_payload is not None:
@@ -182,9 +183,9 @@ class CartridgeAgent(threading.Thread):
         event_obj = InstanceCleanupClusterEvent.create_from_json(msg.payload)
         cluster_in_payload = self.cartridge_agent_config.cluster_id
         cluster_in_event = event_obj.cluster_id
-        instance_in_payload = self.cartridge_agent_config.instance_id
-        instance_in_event = event_obj.instance_id
-        
+        instance_in_payload = self.cartridge_agent_config.cluster_instance_id
+        instance_in_event = event_obj.cluster_instance_id
+
         if cluster_in_event == cluster_in_payload and instance_in_payload == instance_in_event:
             CartridgeAgent.extension_handler.on_instance_cleanup_cluster_event(event_obj)
 
@@ -196,21 +197,26 @@ class CartridgeAgent(threading.Thread):
         self.__topology_event_subscriber.register_handler("MemberSuspendedEvent", self.on_member_suspended)
         self.__topology_event_subscriber.register_handler("CompleteTopologyEvent", self.on_complete_topology)
         self.__topology_event_subscriber.register_handler("MemberStartedEvent", self.on_member_started)
-        self.__topology_event_subscriber.register_handler("InstanceSpawnedEvent", self.on_instance_spawned)
+        self.__topology_event_subscriber.register_handler("MemberCreatedEvent", self.on_member_created)
+        self.__topology_event_subscriber.register_handler("MemberInitializedEvent", self.on_member_initialized)
 
         self.__topology_event_subscriber.start()
         self.log.info("Cartridge agent topology receiver thread started")
 
-    def on_instance_spawned(self, msg):
-        self.log.debug("Instance spawned event received: %r" % msg.payload)
+    def on_member_created(self, msg):
+        self.log.debug("Member created event received: %r" % msg.payload)
+
+    def on_member_initialized(self, msg):
+        self.log.debug("Member initialized event received: %r" % msg.payload)
+
         if self.cartridge_agent_config.initialized:
             return
 
-        event_obj = InstanceSpawnedEvent.create_from_json(msg.payload)
+        event_obj = MemberInitializedEvent.create_from_json(msg.payload)
         try:
-            CartridgeAgent.extension_handler.on_instance_spawned_event(event_obj)
+            CartridgeAgent.extension_handler.on_member_initialized_event(event_obj)
         except:
-            self.log.exception("Error processing instance spawned event")
+            self.log.exception("Error processing member initialized event")
 
     def on_member_activated(self, msg):
         self.log.debug("Member activated event received: %r" % msg.payload)

@@ -54,10 +54,12 @@ public class MonitorStatusEventBuilder {
 
     public static void handleClusterScalingEvent(ParentComponentMonitor parent,
                                                  String networkPartitionId, String instanceId, float factor,
-                                                 String appId) {
+                                                 String id) {
 
+        log.info(String.format("Scaling event to the parent, [id] %s, [network Partition Id] %s, [instance id] %s, " +
+                "[factor] %s", id, networkPartitionId, instanceId, factor));
         //Send notifications to parent of the cluster monitor
-        ScalingEvent scalingEvent = new ScalingEvent(appId, networkPartitionId, instanceId, factor) ;
+        ScalingEvent scalingEvent = new ScalingEvent(id, networkPartitionId, instanceId, factor) ;
         notifyParent(parent, scalingEvent);
     }
 
@@ -66,11 +68,19 @@ public class MonitorStatusEventBuilder {
                                                  String appId) {
 
         //Send notifications to parent of the cluster monitor
-        ScalingOverMaxEvent scalingOverMaxEvent = new ScalingOverMaxEvent(appId, networkPartitionId,
+        ScalingUpBeyondMaxEvent scalingUpBeyondMaxEvent = new ScalingUpBeyondMaxEvent(appId, networkPartitionId,
                                                             instanceId) ;
-        notifyParent(parent, scalingOverMaxEvent);
+        notifyParent(parent, scalingUpBeyondMaxEvent);
     }
 
+    public static void handleScalingDownBeyondMinEvent(ParentComponentMonitor parent, String networkPartitionId,
+                                                       String instanceId, String appId) {
+
+        //Send notifications to parent of the cluster monitor
+        ScalingDownBeyondMinEvent scalingDownBeyondMinEvent = new ScalingDownBeyondMinEvent(appId, networkPartitionId,
+                instanceId) ;
+        notifyParent(parent, scalingDownBeyondMinEvent);
+    }
     private static void notifyParent(ParentComponentMonitor parent, MonitorStatusEvent statusEvent) {
         parent.onChildStatusEvent(statusEvent);
     }
@@ -109,8 +119,12 @@ public class MonitorStatusEventBuilder {
         parent.onChildScalingEvent(scalingEvent);
     }
 
-    private static void notifyParent(ParentComponentMonitor parent, ScalingOverMaxEvent scalingOverMaxEvent) {
-        parent.onChildScalingOverMaxEvent(scalingOverMaxEvent);
+    private static void notifyParent(ParentComponentMonitor parent, ScalingDownBeyondMinEvent scalingDownBeyondMinEvent) {
+        parent.onChildScalingDownBeyondMinEvent(scalingDownBeyondMinEvent);
+    }
+
+    private static void notifyParent(ParentComponentMonitor parent, ScalingUpBeyondMaxEvent scalingUpBeyondMaxEvent) {
+        parent.onChildScalingOverMaxEvent(scalingUpBeyondMaxEvent);
     }
 
     public static void notifyChildren (ParentComponentMonitor componentMonitor, ScalingEvent scalingEvent) {

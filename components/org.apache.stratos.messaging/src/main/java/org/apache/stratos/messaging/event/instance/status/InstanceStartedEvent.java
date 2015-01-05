@@ -27,24 +27,28 @@ import java.io.Serializable;
 public class InstanceStartedEvent extends InstanceStatusEvent implements Serializable {
     private static final long serialVersionUID = 7447068435627208619L;
 
+    private final String applicationId;
     private final String serviceName;
     private final String clusterId;
     private final String memberId;
-    private final String instanceId;
     private final String clusterInstanceId;
     private final String networkPartitionId;
     private final String partitionId;
     private String groupId;
 
-    public InstanceStartedEvent(String serviceName, String clusterId, String memberId, String instanceId,
+    public InstanceStartedEvent(String applicationId, String serviceName, String clusterId, String memberId,
                                 String clusterInstanceId, String networkPartitionId, String partitionId) {
+        this.applicationId = applicationId;
         this.serviceName = serviceName;
         this.clusterId = clusterId;
         this.memberId = memberId;
-        this.instanceId = instanceId;
         this.clusterInstanceId = clusterInstanceId;
         this.networkPartitionId = networkPartitionId;
         this.partitionId = partitionId;
+    }
+
+    public String getApplicationId() {
+        return applicationId;
     }
 
     public String getServiceName() {
@@ -75,11 +79,14 @@ public class InstanceStartedEvent extends InstanceStatusEvent implements Seriali
 		this.groupId = groupId;
 	}
 
-    public String getInstanceId() {
-        return instanceId;
-    }
-
     public String getClusterInstanceId() {
         return clusterInstanceId;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("[service-name] %s [cluster-id] %s [cluster-instance-id] %s [member-id] %s" +
+                "[network-partition-id] %s [partition-id] %s", getServiceName(), getClusterId(),
+                getClusterInstanceId(), getMemberId(), getNetworkPartitionId(), getPartitionId());
     }
 }

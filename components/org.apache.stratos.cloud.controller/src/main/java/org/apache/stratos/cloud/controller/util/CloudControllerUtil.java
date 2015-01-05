@@ -27,16 +27,15 @@ import org.apache.stratos.cloud.controller.context.CloudControllerContext;
 import org.apache.stratos.cloud.controller.domain.*;
 import org.apache.stratos.cloud.controller.exception.CloudControllerException;
 import org.apache.stratos.cloud.controller.exception.InvalidIaasProviderException;
-import org.apache.stratos.cloud.controller.exception.InvalidKubernetesGroupException;
+import org.apache.stratos.cloud.controller.exception.InvalidKubernetesClusterException;
 import org.apache.stratos.cloud.controller.exception.InvalidKubernetesHostException;
 import org.apache.stratos.cloud.controller.exception.InvalidKubernetesMasterException;
 import org.apache.stratos.cloud.controller.iaases.Iaas;
-import org.apache.stratos.cloud.controller.registry.Deserializer;
-import org.apache.stratos.cloud.controller.registry.RegistryManager;
+import org.apache.stratos.common.registry.RegistryManager;
 import org.apache.stratos.common.Property;
-import org.apache.stratos.common.kubernetes.KubernetesGroup;
-import org.apache.stratos.common.kubernetes.KubernetesHost;
-import org.apache.stratos.common.kubernetes.KubernetesMaster;
+import org.apache.stratos.cloud.controller.domain.kubernetes.KubernetesCluster;
+import org.apache.stratos.cloud.controller.domain.kubernetes.KubernetesHost;
+import org.apache.stratos.cloud.controller.domain.kubernetes.KubernetesMaster;
 import org.apache.stratos.messaging.domain.topology.Topology;
 import org.wso2.carbon.registry.core.exceptions.RegistryException;
 
@@ -111,7 +110,7 @@ public class CloudControllerUtil {
         org.apache.stratos.common.Properties props = config.getProperties();
         if (props != null) {
             for (Property prop : props.getProperties()) {
-                cartridge.addProperty(prop.getName(), prop.getValue());
+                cartridge.addProperty(prop.getName(), String.valueOf(prop.getValue()));
             }
         }
         
@@ -178,7 +177,7 @@ public class CloudControllerUtil {
                     org.apache.stratos.common.Properties props1 = iaasConfig.getProperties();
                     if (props1 != null) {
                         for (Property prop : props1.getProperties()) {
-                            iaasProvider.addProperty(prop.getName(), prop.getValue());
+                            iaasProvider.addProperty(prop.getName(), String.valueOf(prop.getValue()));
                         }
                     }
                     
@@ -190,11 +189,6 @@ public class CloudControllerUtil {
                     cartridge.addIaasProvider(iaasProvider);
                 }
             }
-        }
-        
-        // populate container
-        if(config.getContainer() != null) {
-        	cartridge.setContainer(config.getContainer());
         }
 
         if(config.getExportingProperties() != null){
@@ -261,7 +255,7 @@ public class CloudControllerUtil {
     public static String getProperty(Properties properties, String key, String defaultValue) {
         if (key != null && properties != null) {
             for (Iterator<Entry<Object, Object>> iterator = properties.entrySet().iterator(); iterator.hasNext();) {
-                Entry<Object, Object> type = (Entry<Object, Object>) iterator.next();
+                Entry<Object, Object> type = iterator.next();
                 String propName = type.getKey().toString();
                 String propValue = type.getValue().toString();
                 if (key.equals(propName)) {
@@ -324,22 +318,16 @@ public class CloudControllerUtil {
           log.fatal(msg, e);
       }
     }
-    
-    public static Topology retrieveTopology() {    	
-          Object dataObj = RegistryManager.getInstance().read(CloudControllerConstants.TOPOLOGY_RESOURCE);
-          if (dataObj != null) {
-              try {
-                  if(dataObj instanceof Topology) {
-                      return (Topology) dataObj;
-                  } else {
-                      return null;
-                  }
-              } catch (Exception e) {
-                String msg = "Unable to retrieve data from Registry. Hence, any historical data will not get reflected.";
-                log.warn(msg, e);
-            }
-          }
-          return null;
+
+    public static Topology retrieveTopology() {
+        try {
+            Object dataObj = RegistryManager.getInstance().read(CloudControllerConstants.TOPOLOGY_RESOURCE);
+            return (Topology) dataObj;
+        } catch (Exception e) {
+            String msg = "Unable to retrieve data from registry";
+            log.error(msg, e);
+            throw new RuntimeException(msg, e);
+        }
     }
 
 	
@@ -363,68 +351,70 @@ public class CloudControllerUtil {
 		return "[" +partitionStr+ "]";
 	}
 	
-	public static String getCompatibleId(String clusterId) {
-		if (clusterId.indexOf('.') != -1) {
-			clusterId = clusterId.replace('.', '-');
+	public static String replaceDotsWithDash(String id) {
+		if (id.indexOf('.') != -1) {
+			id = id.replace('.', '-');
 		}
-		return clusterId;
+		return id;
 	}
 	
-	public static void validateKubernetesGroup(KubernetesGroup kubernetesGroup) throws InvalidKubernetesGroupException {
+	public static void validateKubernetesCluster(KubernetesCluster kubernetesCluster) throws InvalidKubernetesClusterException {
         CloudControllerContext context = CloudControllerContext.getInstance();
 	    
-	    if (kubernetesGroup == null) {
-            throw new InvalidKubernetesGroupException("Kubernetes group can not be null");
+	    if (kubernetesCluster == null) {
+            throw new InvalidKubernetesClusterException("Kubernetes cluster can not be null");
         }
-        if (StringUtils.isEmpty(kubernetesGroup.getGroupId())) {
-            throw new InvalidKubernetesGroupException("Kubernetes group groupId can not be empty");
+        if (StringUtils.isEmpty(kubernetesCluster.getClusterId())) {
+            throw new InvalidKubernetesClusterException("Kubernetes cluster groupId can not be empty");
         }
-        if (context.kubernetesGroupExists(kubernetesGroup)) {
-            throw new InvalidKubernetesGroupException(String.format("Kubernetes group already exists " +
-                    "[id] %s", kubernetesGroup.getGroupId()));
+        if (context.kubernetesClusterExists(kubernetesCluster)) {
+            throw new InvalidKubernetesClusterException(String.format("Kubernetes cluster already exists " +
+                    "[id] %s", kubernetesCluster.getClusterId()));
         }
-        if (kubernetesGroup.getKubernetesMaster() == null) {
-            throw new InvalidKubernetesGroupException("Mandatory field master has not been set " +
-                    "for the Kubernetes group [id] " + kubernetesGroup.getGroupId());
+        if (kubernetesCluster.getKubernetesMaster() == null) {
+            throw new InvalidKubernetesClusterException("Mandatory field master has not been set " +
+                    "for the Kubernetes cluster [id] " + kubernetesCluster.getClusterId());
         }
-        if (kubernetesGroup.getPortRange() == null) {
-            throw new InvalidKubernetesGroupException("Mandatory field portRange has not been set " +
-                    "for the Kubernetes group [id] " + kubernetesGroup.getGroupId());
+        if (kubernetesCluster.getPortRange() == null) {
+            throw new InvalidKubernetesClusterException("Mandatory field portRange has not been set " +
+                    "for the Kubernetes cluster [id] " + kubernetesCluster.getClusterId());
         }
 
         // Port range validation
-        if (kubernetesGroup.getPortRange().getUpper() > CloudControllerConstants.PORT_RANGE_MAX ||
-                kubernetesGroup.getPortRange().getUpper() < CloudControllerConstants.PORT_RANGE_MIN ||
-                kubernetesGroup.getPortRange().getLower() > CloudControllerConstants.PORT_RANGE_MAX ||
-                kubernetesGroup.getPortRange().getLower() < CloudControllerConstants.PORT_RANGE_MIN ||
-                kubernetesGroup.getPortRange().getUpper() < kubernetesGroup.getPortRange().getLower()) {
-            throw new InvalidKubernetesGroupException("Port range is invalid " +
-                    "for the Kubernetes group [id]" + kubernetesGroup.getGroupId());
+        if (kubernetesCluster.getPortRange().getUpper() > CloudControllerConstants.PORT_RANGE_MAX ||
+                kubernetesCluster.getPortRange().getUpper() < CloudControllerConstants.PORT_RANGE_MIN ||
+                kubernetesCluster.getPortRange().getLower() > CloudControllerConstants.PORT_RANGE_MAX ||
+                kubernetesCluster.getPortRange().getLower() < CloudControllerConstants.PORT_RANGE_MIN ||
+                kubernetesCluster.getPortRange().getUpper() < kubernetesCluster.getPortRange().getLower()) {
+            throw new InvalidKubernetesClusterException("Port range is invalid in kubernetes cluster " +
+                    "[kubenetes-cluster-id] " + kubernetesCluster.getClusterId() + " " +
+                    " [valid-min] " + CloudControllerConstants.PORT_RANGE_MIN + " [valid-max] " +
+                    CloudControllerConstants.PORT_RANGE_MAX);
         }
         try {
-            validateKubernetesMaster(kubernetesGroup.getKubernetesMaster());
-            validateKubernetesHosts(kubernetesGroup.getKubernetesHosts());
+            validateKubernetesMaster(kubernetesCluster.getKubernetesMaster());
+            validateKubernetesHosts(kubernetesCluster.getKubernetesHosts());
 
             // check whether master already exists
-            if (context.kubernetesHostExists(kubernetesGroup.getKubernetesMaster().getHostId())) {
-                throw new InvalidKubernetesGroupException("Kubernetes host already exists [id] " +
-                        kubernetesGroup.getKubernetesMaster().getHostId());
+            if (context.kubernetesHostExists(kubernetesCluster.getKubernetesMaster().getHostId())) {
+                throw new InvalidKubernetesClusterException("Kubernetes host already exists [id] " +
+                        kubernetesCluster.getKubernetesMaster().getHostId());
             }
 
             // Check for duplicate hostIds
-            if (kubernetesGroup.getKubernetesHosts() != null) {
+            if (kubernetesCluster.getKubernetesHosts() != null) {
                 List<String> hostIds = new ArrayList<String>();
-                hostIds.add(kubernetesGroup.getKubernetesMaster().getHostId());
+                hostIds.add(kubernetesCluster.getKubernetesMaster().getHostId());
 
-                for (KubernetesHost kubernetesHost : kubernetesGroup.getKubernetesHosts()) {
+                for (KubernetesHost kubernetesHost : kubernetesCluster.getKubernetesHosts()) {
                     if (hostIds.contains(kubernetesHost.getHostId())) {
-                        throw new InvalidKubernetesGroupException(
+                        throw new InvalidKubernetesClusterException(
                                 String.format("Kubernetes host [id] %s already defined in the request", kubernetesHost.getHostId()));
                     }
 
                     // check whether host already exists
                     if (context.kubernetesHostExists(kubernetesHost.getHostId())) {
-                        throw new InvalidKubernetesGroupException("Kubernetes host already exists [id] " +
+                        throw new InvalidKubernetesClusterException("Kubernetes host already exists [id] " +
                                 kubernetesHost.getHostId());
                     }
 
@@ -433,9 +423,9 @@ public class CloudControllerUtil {
             }
 
         } catch (InvalidKubernetesHostException e) {
-            throw new InvalidKubernetesGroupException(e.getMessage());
+            throw new InvalidKubernetesClusterException(e.getMessage());
         } catch (InvalidKubernetesMasterException e) {
-            throw new InvalidKubernetesGroupException(e.getMessage());
+            throw new InvalidKubernetesClusterException(e.getMessage());
         }
     }
 	
@@ -471,5 +461,4 @@ public class CloudControllerUtil {
             throw new InvalidKubernetesMasterException(e.getMessage());
         }
     }
-
 }

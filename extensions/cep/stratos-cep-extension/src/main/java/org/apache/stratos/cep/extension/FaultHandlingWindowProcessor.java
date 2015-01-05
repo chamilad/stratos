@@ -45,7 +45,9 @@ import org.wso2.siddhi.query.api.expression.constant.IntConstant;
 import org.wso2.siddhi.query.api.expression.constant.LongConstant;
 import org.wso2.siddhi.query.api.extension.annotation.SiddhiExtension;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -104,7 +106,7 @@ public class FaultHandlingWindowProcessor extends WindowProcessor implements Run
 		//so we are checking the topology for the member existence
 		Member member = getMemberFromId(id);
 		if (null == member) {
-			log.debug("Member not found in the toplogy. Event rejected");
+			log.debug("Member not found in the topology. Event rejected");
 			return;
 		}
         if (StringUtils.isNotEmpty(id)) {
@@ -210,7 +212,7 @@ public class FaultHandlingWindowProcessor extends WindowProcessor implements Run
         log.info("Publishing member fault event for [member-id] " + memberId);
 
         MemberFaultEvent memberFaultEvent = new MemberFaultEvent(member.getClusterId(), member.getClusterInstanceId(),
-                member.getMemberId(), member.getPartitionId(), member.getInstanceId(),
+                member.getMemberId(), member.getPartitionId(),
                 member.getNetworkPartitionId(), 0);
 
         memberFaultEventMessageMap.put("message", memberFaultEvent);

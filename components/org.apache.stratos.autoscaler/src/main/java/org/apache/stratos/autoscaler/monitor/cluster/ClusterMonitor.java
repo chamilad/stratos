@@ -19,13 +19,15 @@
 package org.apache.stratos.autoscaler.monitor.cluster;
 
 import org.apache.commons.configuration.XMLConfiguration;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.autoscaler.client.CloudControllerClient;
 import org.apache.stratos.autoscaler.context.InstanceContext;
+import org.apache.stratos.autoscaler.context.cluster.AbstractClusterContext;
+import org.apache.stratos.autoscaler.context.cluster.ClusterContext;
 import org.apache.stratos.autoscaler.context.cluster.ClusterContextFactory;
 import org.apache.stratos.autoscaler.context.cluster.ClusterInstanceContext;
-import org.apache.stratos.autoscaler.context.cluster.ClusterContext;
 import org.apache.stratos.autoscaler.context.member.MemberStatsContext;
 import org.apache.stratos.autoscaler.context.partition.ClusterLevelPartitionContext;
 import org.apache.stratos.autoscaler.context.partition.network.ClusterLevelNetworkPartitionContext;
@@ -35,9 +37,10 @@ import org.apache.stratos.autoscaler.exception.InvalidArgumentException;
 import org.apache.stratos.autoscaler.exception.cartridge.TerminationException;
 import org.apache.stratos.autoscaler.exception.partition.PartitionValidationException;
 import org.apache.stratos.autoscaler.exception.policy.PolicyValidationException;
+import org.apache.stratos.autoscaler.monitor.Monitor;
 import org.apache.stratos.autoscaler.monitor.events.MonitorStatusEvent;
 import org.apache.stratos.autoscaler.monitor.events.ScalingEvent;
-import org.apache.stratos.autoscaler.monitor.events.ScalingOverMaxEvent;
+import org.apache.stratos.autoscaler.monitor.events.ScalingUpBeyondMaxEvent;
 import org.apache.stratos.autoscaler.monitor.events.builder.MonitorStatusEventBuilder;
 import org.apache.stratos.autoscaler.rule.AutoscalerRuleEvaluator;
 import org.apache.stratos.autoscaler.status.processor.cluster.ClusterStatusActiveProcessor;
@@ -63,15 +66,44 @@ import org.apache.stratos.messaging.domain.topology.Service;
 import org.apache.stratos.messaging.event.health.stat.*;
 import org.apache.stratos.messaging.event.topology.*;
 import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
+import org.drools.runtime.StatefulKnowledgeSession;
+import org.drools.runtime.rule.FactHandle;
 
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Is responsible for monitoring a service cluster. This runs periodically
  * and perform minimum instance check and scaling check using the underlying
  * rules engine.
  */
-public class ClusterMonitor extends AbstractClusterMonitor {
+public class ClusterMonitor extends Monitor implements Runnable {
+
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    protected FactHandle minCheckFactHandle;
+    protected FactHandle obsoleteCheckFactHandle;
+    protected FactHandle scaleCheckFactHandle;
+    protected FactHandle dependentScaleCheckFactHandle;
+    protected boolean hasFaultyMember = false;
+    protected boolean stop = false;
+    protected AbstractClusterContext clusterContext;
+    protected StatefulKnowledgeSession minCheckKnowledgeSession;
+    protected StatefulKnowledgeSession obsoleteCheckKnowledgeSession;
+    protected StatefulKnowledgeSession scaleCheckKnowledgeSession;
+    protected StatefulKnowledgeSession dependentScaleCheckKnowledgeSession;
+    protected AutoscalerRuleEvaluator autoscalerRuleEvaluator;
+    protected String serviceType;
+    private AtomicBoolean monitoringStarted;
+    protected String clusterId;
+    private Cluster cluster;
+    private int monitoringIntervalMilliseconds;
+    private boolean isDestroyed;
+    //has scaling dependents
+    private boolean hasScalingDependents;
+    private boolean groupScalingEnabledSubtree;
 
     private static final Log log = LogFactory.getLog(ClusterMonitor.class);
     private Map<String, ClusterLevelNetworkPartitionContext> networkPartitionIdToClusterLevelNetworkPartitionCtxts;
@@ -80,31 +112,274 @@ public class ClusterMonitor extends AbstractClusterMonitor {
 
 
     protected ClusterMonitor(Cluster cluster, boolean hasScalingDependents, boolean groupScalingEnabledSubtree) {
-        super(cluster, hasScalingDependents, groupScalingEnabledSubtree);
+
         this.networkPartitionIdToClusterLevelNetworkPartitionCtxts = new HashMap<String, ClusterLevelNetworkPartitionContext>();
         readConfigurations();
         autoscalerRuleEvaluator = new AutoscalerRuleEvaluator();
-        autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.VM_OBSOLETE_CHECK_DROOL_FILE);
-        autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.VM_SCALE_CHECK_DROOL_FILE);
-        autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.VM_MIN_CHECK_DROOL_FILE);
+        autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.OBSOLETE_CHECK_DROOL_FILE);
+        autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.SCALE_CHECK_DROOL_FILE);
+        autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.MIN_CHECK_DROOL_FILE);
         autoscalerRuleEvaluator.parseAndBuildKnowledgeBaseForDroolsFile(StratosConstants.DEPENDENT_SCALE_CHECK_DROOL_FILE);
 
         this.obsoleteCheckKnowledgeSession = autoscalerRuleEvaluator.getStatefulSession(
-                StratosConstants.VM_OBSOLETE_CHECK_DROOL_FILE);
+                StratosConstants.OBSOLETE_CHECK_DROOL_FILE);
         this.scaleCheckKnowledgeSession = autoscalerRuleEvaluator.getStatefulSession(
-                StratosConstants.VM_SCALE_CHECK_DROOL_FILE);
+                StratosConstants.SCALE_CHECK_DROOL_FILE);
         this.minCheckKnowledgeSession = autoscalerRuleEvaluator.getStatefulSession(
-                StratosConstants.VM_MIN_CHECK_DROOL_FILE);
+                StratosConstants.MIN_CHECK_DROOL_FILE);
         this.dependentScaleCheckKnowledgeSession = autoscalerRuleEvaluator.getStatefulSession(
                 StratosConstants.DEPENDENT_SCALE_CHECK_DROOL_FILE);
+
+        this.groupScalingEnabledSubtree = groupScalingEnabledSubtree;
+        this.setCluster(new Cluster(cluster));
+        this.serviceType = cluster.getServiceName();
+        this.clusterId = cluster.getClusterId();
+        this.monitoringStarted = new AtomicBoolean(false);
+        this.hasScalingDependents = hasScalingDependents;
     }
 
+    public void startScheduler() {
+        scheduler.scheduleAtFixedRate(this, 0, getMonitorIntervalMilliseconds(), TimeUnit.MILLISECONDS);
+    }
+
+    protected void stopScheduler() {
+        scheduler.shutdownNow();
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((this.clusterId == null) ? 0 : this.clusterId.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (!(obj instanceof ClusterMonitor)) {
+            return false;
+        }
+        final ClusterMonitor other = (ClusterMonitor) obj;
+        if (this.clusterId == null) {
+            if (other.clusterId != null) {
+                return false;
+            }
+        }
+        if (!this.clusterId.equals(other.clusterId)) {
+            return false;
+        }
+        return true;
+    }
+
+    public String getClusterId() {
+        return clusterId;
+    }
+
+    public void setClusterId(String clusterId) {
+        this.clusterId = clusterId;
+    }
+
+    public void notifyParentMonitor(ClusterStatus status, String instanceId) {
+
+        /**
+         * notifying the parent monitor about the state change
+         * If the cluster in_active and if it is a in_dependent cluster,
+         * then won't send the notification to parent.
+         */
+        ClusterInstance instance = (ClusterInstance) this.instanceIdToInstanceMap.get(instanceId);
+        if(instance == null) {
+            log.warn("The required cluster [instance] " + instanceId + " not found in the ClusterMonitor");
+        } else {
+            if(instance.getStatus() != status) {
+                instance.setStatus(status);
+            }
+            /*if (instance.getStatus() == ClusterStatus.Inactive && !this.hasStartupDependents) {
+                log.info("[Cluster] " + clusterId + "is not notifying the parent, " +
+                        "since it is identified as the independent unit");
+            } else {*/
+            MonitorStatusEventBuilder.handleClusterStatusEvent(this.parent, status, this.clusterId, instanceId);
+            //}
+        }
+    }
+
+    public int getMonitorIntervalMilliseconds() {
+        return monitoringIntervalMilliseconds;
+    }
+
+    public void setMonitorIntervalMilliseconds(int monitorIntervalMilliseconds) {
+        this.monitoringIntervalMilliseconds = monitorIntervalMilliseconds;
+    }
+
+    public FactHandle getMinCheckFactHandle() {
+        return minCheckFactHandle;
+    }
+
+    public void setMinCheckFactHandle(FactHandle minCheckFactHandle) {
+        this.minCheckFactHandle = minCheckFactHandle;
+    }
+
+    public FactHandle getObsoleteCheckFactHandle() {
+        return obsoleteCheckFactHandle;
+    }
+
+    public void setObsoleteCheckFactHandle(FactHandle obsoleteCheckFactHandle) {
+        this.obsoleteCheckFactHandle = obsoleteCheckFactHandle;
+    }
+
+    public FactHandle getScaleCheckFactHandle() {
+        return scaleCheckFactHandle;
+    }
+
+    public void setScaleCheckFactHandle(FactHandle scaleCheckFactHandle) {
+        this.scaleCheckFactHandle = scaleCheckFactHandle;
+    }
+
+    public StatefulKnowledgeSession getMinCheckKnowledgeSession() {
+        return minCheckKnowledgeSession;
+    }
+
+    public void setMinCheckKnowledgeSession(
+            StatefulKnowledgeSession minCheckKnowledgeSession) {
+        this.minCheckKnowledgeSession = minCheckKnowledgeSession;
+    }
+
+    public StatefulKnowledgeSession getObsoleteCheckKnowledgeSession() {
+        return obsoleteCheckKnowledgeSession;
+    }
+
+    public void setObsoleteCheckKnowledgeSession(
+            StatefulKnowledgeSession obsoleteCheckKnowledgeSession) {
+        this.obsoleteCheckKnowledgeSession = obsoleteCheckKnowledgeSession;
+    }
+
+    public StatefulKnowledgeSession getScaleCheckKnowledgeSession() {
+        return scaleCheckKnowledgeSession;
+    }
+
+    public void setScaleCheckKnowledgeSession(
+            StatefulKnowledgeSession scaleCheckKnowledgeSession) {
+        this.scaleCheckKnowledgeSession = scaleCheckKnowledgeSession;
+    }
+
+    public boolean isDestroyed() {
+        return isDestroyed;
+    }
+
+    public void setDestroyed(boolean isDestroyed) {
+        this.isDestroyed = isDestroyed;
+    }
+
+    public AutoscalerRuleEvaluator getAutoscalerRuleEvaluator() {
+        return autoscalerRuleEvaluator;
+    }
+
+    public void setAutoscalerRuleEvaluator(
+            AutoscalerRuleEvaluator autoscalerRuleEvaluator) {
+        this.autoscalerRuleEvaluator = autoscalerRuleEvaluator;
+    }
+
+    public boolean isHasFaultyMember() {
+        return hasFaultyMember;
+    }
+
+    public void setHasFaultyMember(boolean hasFaultyMember) {
+        this.hasFaultyMember = hasFaultyMember;
+    }
+
+    /*public void addClusterContextForInstance (String instanceId, AbstractClusterContext clusterContext) {
+
+        if (instanceIdToClusterContextMap.get(instanceId) == null) {
+            synchronized (instanceIdToClusterContextMap) {
+                if (instanceIdToClusterContextMap.get(instanceId) == null) {
+                    instanceIdToClusterContextMap.put(instanceId, clusterContext);
+                } else {
+                    log.warn("ClusterContext for already exists for cluster instance id: " + instanceId +
+                            ", service type: " + serviceType + ", cluster id: " + clusterId);
+                }
+            }
+        } else {
+            log.warn("ClusterContext for already exists for cluster instance id: " + instanceId +
+                    ", service type: " + serviceType + ", cluster id: " + clusterId);
+        }
+    }
+
+    public AbstractClusterContext getClusterContext (String instanceId) {
+
+        // if instanceId is null, assume that map contains only one element and return that
+
+        return instanceIdToClusterContextMap.get(instanceId);
+    }*/
+
+    public boolean isStop() {
+        return stop;
+    }
+
+    public void setStop(boolean stop) {
+        this.stop = stop;
+    }
+
+    public String getServiceId() {
+        return serviceType;
+    }
+
+    protected int getRoundedInstanceCount(float requiredInstances, float fraction) {
+
+        return (requiredInstances - Math.floor(requiredInstances) > fraction) ? (int) Math.ceil(requiredInstances)
+                : (int) Math.floor(requiredInstances);
+    }
+
+    public AtomicBoolean hasMonitoringStarted() {
+        return monitoringStarted;
+    }
+
+    public void setMonitoringStarted(boolean monitoringStarted) {
+        this.monitoringStarted.set(monitoringStarted);
+    }
+
+    public StatefulKnowledgeSession getDependentScaleCheckKnowledgeSession() {
+        return dependentScaleCheckKnowledgeSession;
+    }
+
+    public void setDependentScaleCheckKnowledgeSession(StatefulKnowledgeSession dependentScaleCheckKnowledgeSession) {
+        this.dependentScaleCheckKnowledgeSession = dependentScaleCheckKnowledgeSession;
+    }
+
+    public AbstractClusterContext getClusterContext() {
+        return clusterContext;
+    }
+
+    public void setClusterContext(AbstractClusterContext clusterContext) {
+        this.clusterContext = clusterContext;
+    }
+
+    public Cluster getCluster() {
+        return cluster;
+    }
+
+    public void setCluster(Cluster cluster) {
+        this.cluster = cluster;
+    }
+
+    public boolean hasScalingDependents() {
+        return hasScalingDependents;
+    }
+
+    public boolean groupScalingEnabledSubtree() {
+
+        return groupScalingEnabledSubtree;
+    }
     private static void terminateMember(String memberId) {
         try {
-            CloudControllerClient.getInstance().terminate(memberId);
+            CloudControllerClient.getInstance().terminateInstance(memberId);
 
         } catch (TerminationException e) {
-            log.error("Unable to terminate member [member id ] " + memberId, e);
+            log.error("Unable to terminate member: [member-id] " + memberId, e);
         }
     }
 
@@ -122,7 +397,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         return networkPartitionIdToClusterLevelNetworkPartitionCtxts.get(nwPartitionId);
     }
 
-    @Override
     public void handleAverageLoadAverageEvent(
             AverageLoadAverageEvent averageLoadAverageEvent) {
 
@@ -324,8 +598,7 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
-    protected void readConfigurations() {
+    private void readConfigurations() {
         XMLConfiguration conf = ConfUtil.getInstance(null).getConfiguration();
         int monitorInterval = conf.getInt(AutoScalerConstants.VMService_Cluster_MONITOR_INTERVAL, 90000);
         setMonitorIntervalMilliseconds(monitorInterval);
@@ -385,18 +658,19 @@ public class ClusterMonitor extends AbstractClusterMonitor {
     }
 
     @Override
-    public void onChildScalingOverMaxEvent(ScalingOverMaxEvent scalingOverMaxEvent) {
+    public void onChildScalingOverMaxEvent(ScalingUpBeyondMaxEvent scalingUpBeyondMaxEvent) {
 
     }
 
     @Override
     public void onParentScalingEvent(ScalingEvent scalingEvent) {
 
-        if (log.isDebugEnabled()) {
-            log.debug("Parent scaling event received to [cluster]: " + this.getClusterId()
+
+        log.info("Parent scaling event received to [cluster]: " + this.getClusterId()
                     + ", [network partition]: " + scalingEvent.getNetworkPartitionId()
-                    + ", [event] " + scalingEvent.getId() + ", [group instance] " + scalingEvent.getInstanceId());
-        }
+                    + ", [event] " + scalingEvent.getId() + ", [group instance] " + scalingEvent.getInstanceId()
+                    + ", [factor] " + scalingEvent.getFactor());
+
 
         this.scalingFactorBasedOnDependencies = scalingEvent.getFactor();
         ClusterContext vmClusterContext = (ClusterContext) clusterContext;
@@ -437,7 +711,7 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         getDependentScaleCheckKnowledgeSession().setGlobal("roundedRequiredInstanceCount", roundedRequiredInstanceCount);
         getDependentScaleCheckKnowledgeSession().setGlobal("algorithmName", clusterInstanceContext.getPartitionAlgorithm());
         getDependentScaleCheckKnowledgeSession().setGlobal("isPrimary", hasPrimary);
-
+        getDependentScaleCheckKnowledgeSession().setGlobal("primaryMembers", primaryMemberListInClusterInstance);
         dependentScaleCheckFactHandle = AutoscalerRuleEvaluator.evaluate(getDependentScaleCheckKnowledgeSession()
                 , dependentScaleCheckFactHandle, clusterInstanceContext);
 
@@ -454,7 +728,12 @@ public class ClusterMonitor extends AbstractClusterMonitor {
                 this.id);
     }
 
-    @Override
+    public void sendScalingDownBeyondMinEvent(String networkPartitionId, String instanceId) {
+
+        MonitorStatusEventBuilder.handleScalingDownBeyondMinEvent(this.parent, networkPartitionId, instanceId,
+                this.id);
+    }
+
     public void handleGradientOfLoadAverageEvent(
             GradientOfLoadAverageEvent gradientOfLoadAverageEvent) {
 
@@ -478,7 +757,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleSecondDerivativeOfLoadAverageEvent(
             SecondDerivativeOfLoadAverageEvent secondDerivativeOfLoadAverageEvent) {
 
@@ -502,7 +780,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleAverageMemoryConsumptionEvent(
             AverageMemoryConsumptionEvent averageMemoryConsumptionEvent) {
 
@@ -527,7 +804,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleGradientOfMemoryConsumptionEvent(
             GradientOfMemoryConsumptionEvent gradientOfMemoryConsumptionEvent) {
 
@@ -551,7 +827,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleSecondDerivativeOfMemoryConsumptionEvent(
             SecondDerivativeOfMemoryConsumptionEvent secondDerivativeOfMemoryConsumptionEvent) {
 
@@ -602,7 +877,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
 
     }
 
-    @Override
     public void handleAverageRequestsInFlightEvent(
             AverageRequestsInFlightEvent averageRequestsInFlightEvent) {
 
@@ -632,7 +906,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleGradientOfRequestsInFlightEvent(
             GradientOfRequestsInFlightEvent gradientOfRequestsInFlightEvent) {
 
@@ -656,7 +929,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleSecondDerivativeOfRequestsInFlightEvent(
             SecondDerivativeOfRequestsInFlightEvent secondDerivativeOfRequestsInFlightEvent) {
 
@@ -680,7 +952,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleMemberAverageMemoryConsumptionEvent(
             MemberAverageMemoryConsumptionEvent memberAverageMemoryConsumptionEvent) {
 
@@ -703,7 +974,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         memberStatsContext.setAverageMemoryConsumption(value);
     }
 
-    @Override
     public void handleMemberGradientOfMemoryConsumptionEvent(
             MemberGradientOfMemoryConsumptionEvent memberGradientOfMemoryConsumptionEvent) {
 
@@ -726,13 +996,11 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         memberStatsContext.setGradientOfMemoryConsumption(value);
     }
 
-    @Override
     public void handleMemberSecondDerivativeOfMemoryConsumptionEvent(
             MemberSecondDerivativeOfMemoryConsumptionEvent memberSecondDerivativeOfMemoryConsumptionEvent) {
 
     }
 
-    @Override
     public void handleMemberAverageLoadAverageEvent(
             MemberAverageLoadAverageEvent memberAverageLoadAverageEvent) {
 
@@ -755,7 +1023,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         memberStatsContext.setAverageLoadAverage(value);
     }
 
-    @Override
     public void handleMemberGradientOfLoadAverageEvent(
             MemberGradientOfLoadAverageEvent memberGradientOfLoadAverageEvent) {
 
@@ -778,7 +1045,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         memberStatsContext.setGradientOfLoadAverage(value);
     }
 
-    @Override
     public void handleMemberSecondDerivativeOfLoadAverageEvent(
             MemberSecondDerivativeOfLoadAverageEvent memberSecondDerivativeOfLoadAverageEvent) {
 
@@ -802,7 +1068,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         memberStatsContext.setSecondDerivativeOfLoadAverage(value);
     }
 
-    @Override
     public void handleMemberFaultEvent(MemberFaultEvent memberFaultEvent) {
 
         String memberId = memberFaultEvent.getMemberId();
@@ -849,13 +1114,11 @@ public class ClusterMonitor extends AbstractClusterMonitor {
                 ClusterStatusInactiveProcessor.class.getName(), clusterId, clusterInstanceId);
     }
 
-    @Override
     public void handleMemberStartedEvent(
             MemberStartedEvent memberStartedEvent) {
 
     }
 
-    @Override
     public void handleMemberActivatedEvent(
             MemberActivatedEvent memberActivatedEvent) {
 
@@ -878,16 +1141,15 @@ public class ClusterMonitor extends AbstractClusterMonitor {
                 ClusterStatusActiveProcessor.class.getName(), clusterId, clusterInstanceId);
     }
 
-    @Override
     public void handleMemberMaintenanceModeEvent(
             MemberMaintenanceModeEvent maintenanceModeEvent) {
 
         String networkPartitionId = maintenanceModeEvent.getNetworkPartitionId();
         String partitionId = maintenanceModeEvent.getPartitionId();
         String memberId = maintenanceModeEvent.getMemberId();
-        String instanceId = maintenanceModeEvent.getInstanceId();
+        String clusterInstanceId = maintenanceModeEvent.getClusterInstanceId();
         ClusterInstanceContext networkPartitionCtxt = getClusterInstanceContext(networkPartitionId,
-                instanceId);
+                clusterInstanceId);
         ClusterLevelPartitionContext clusterMonitorPartitionContext = networkPartitionCtxt.
                 getPartitionCtxt(partitionId);
         clusterMonitorPartitionContext.addMemberStatsContext(new MemberStatsContext(memberId));
@@ -898,13 +1160,12 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         clusterMonitorPartitionContext.moveActiveMemberToTerminationPendingMembers(memberId);
     }
 
-    @Override
     public void handleMemberReadyToShutdownEvent(MemberReadyToShutdownEvent memberReadyToShutdownEvent) {
 
         ClusterInstanceContext nwPartitionCtxt;
         String networkPartitionId = memberReadyToShutdownEvent.getNetworkPartitionId();
-        String instanceId = memberReadyToShutdownEvent.getInstanceId();
-        nwPartitionCtxt = getClusterInstanceContext(networkPartitionId, instanceId);
+        String clusterInstanceId = memberReadyToShutdownEvent.getClusterInstanceId();
+        nwPartitionCtxt = getClusterInstanceContext(networkPartitionId, clusterInstanceId);
 
         // start a new member in the same Partition
         String memberId = memberReadyToShutdownEvent.getMemberId();
@@ -941,17 +1202,16 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
     }
 
-    @Override
     public void handleMemberTerminatedEvent(
             MemberTerminatedEvent memberTerminatedEvent) {
 
         String networkPartitionId = memberTerminatedEvent.getNetworkPartitionId();
         String memberId = memberTerminatedEvent.getMemberId();
         String clusterId = memberTerminatedEvent.getClusterId();
-        String instanceId = memberTerminatedEvent.getInstanceId();
+        String clusterInstanceId = memberTerminatedEvent.getClusterInstanceId();
         String partitionId = memberTerminatedEvent.getPartitionId();
         ClusterInstanceContext clusterLevelNetworkPartitionContext = getClusterInstanceContext(
-                networkPartitionId, instanceId);
+                networkPartitionId, clusterInstanceId);
         ClusterLevelPartitionContext clusterMonitorPartitionContext =
                 clusterLevelNetworkPartitionContext.getPartitionCtxt(partitionId);
         clusterMonitorPartitionContext.removeMemberStatsContext(memberId);
@@ -983,16 +1243,14 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         }
         //Checking whether the cluster state can be changed either from in_active to created/terminating to terminated
         ServiceReferenceHolder.getInstance().getClusterStatusProcessorChain().process(
-                ClusterStatusTerminatedProcessor.class.getName(), clusterId, instanceId);
+                ClusterStatusTerminatedProcessor.class.getName(), clusterId, clusterInstanceId);
     }
 
-    @Override
     public void handleClusterRemovedEvent(
             ClusterRemovedEvent clusterRemovedEvent) {
 
     }
 
-    @Override
     public void handleDynamicUpdates(Properties properties) throws InvalidArgumentException {
 
     }
@@ -1035,7 +1293,6 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         return null;
     }
 
-    @Override
     public void terminateAllMembers(final String instanceId, final String networkPartitionId) {
         final ClusterMonitor monitor = this;
         Thread memberTerminator = new Thread(new Runnable() {
@@ -1054,35 +1311,32 @@ public class ClusterMonitor extends AbstractClusterMonitor {
                     // need to terminate active, pending and obsolete members
                     //FIXME to traverse concurrent
                     // active members
-                    List<String> activeMembers = new ArrayList<String>();
+                    List<String> activeMemberIdList = new ArrayList<String>();
                     Iterator<MemberContext> iterator = partitionContext.getActiveMembers().listIterator();
                     while (iterator.hasNext()) {
                         MemberContext activeMemberCtxt = iterator.next();
-                        activeMembers.add(activeMemberCtxt.getMemberId());
+                        activeMemberIdList.add(activeMemberCtxt.getMemberId());
 
                     }
-                    for (String memberId : activeMembers) {
+                    for (String memberId : activeMemberIdList) {
                         log.info("Sending instance cleanup event for the active member: [member-id] " + memberId);
                         partitionContext.moveActiveMemberToTerminationPendingMembers(memberId);
-                        InstanceNotificationPublisher.getInstance().
-                                sendInstanceCleanupEventForMember(memberId);
+                        InstanceNotificationPublisher.getInstance().sendInstanceCleanupEventForMember(memberId);
                     }
-                    Iterator<MemberContext> pendingIterator = partitionContext.getPendingMembers().listIterator();
 
-                    List<String> pendingMembers = new ArrayList<String>();
+                    Iterator<MemberContext> pendingIterator = partitionContext.getPendingMembers().listIterator();
+                    List<String> pendingMemberIdList = new ArrayList<String>();
                     while (pendingIterator.hasNext()) {
                         MemberContext activeMemberCtxt = pendingIterator.next();
-                        pendingMembers.add(activeMemberCtxt.getMemberId());
+                        pendingMemberIdList.add(activeMemberCtxt.getMemberId());
 
                     }
-                    for (String memberId : pendingMembers) {
-                        MemberContext pendingMemberCtxt = pendingIterator.next();
+                    for (String memberId : pendingMemberIdList) {
                         // pending members
-                        String memeberId = pendingMemberCtxt.getMemberId();
                         if (log.isDebugEnabled()) {
-                            log.debug("Moving pending member [member id] " + memeberId + " to obsolete list");
+                            log.debug("Moving pending member [member id] " + memberId + " to obsolete list");
                         }
-                        partitionContext.movePendingMemberToObsoleteMembers(memeberId);
+                        partitionContext.movePendingMemberToObsoleteMembers(memberId);
                     }
                     if(partitionContext.getTotalMemberCount() == 0) {
                         allMovedToObsolete = allMovedToObsolete && true;
@@ -1104,11 +1358,17 @@ public class ClusterMonitor extends AbstractClusterMonitor {
         return ((ClusterContext) this.clusterContext).getNetworkPartitionCtxts();
     }
 
-    public ClusterInstanceContext getClusterInstanceContext(String networkPartitionId, String instanceId) {
-        Map<String, ClusterLevelNetworkPartitionContext> clusterLevelNetworkPartitionContextMap =
+    public ClusterInstanceContext getClusterInstanceContext(String networkPartitionId, String instanceId) {Map<String, ClusterLevelNetworkPartitionContext> clusterLevelNetworkPartitionContextMap =
                 ((ClusterContext) this.clusterContext).getNetworkPartitionCtxts();
+        if(StringUtils.isBlank(networkPartitionId)) {
+            throw new RuntimeException("Network partition id is null");
+        }
         ClusterLevelNetworkPartitionContext networkPartitionContext =
                 clusterLevelNetworkPartitionContextMap.get(networkPartitionId);
+        if(networkPartitionContext == null) {
+            throw new RuntimeException("Network partition context not found: [network-partition-id] " +
+            networkPartitionId);
+        }
         ClusterInstanceContext instanceContext = (ClusterInstanceContext) networkPartitionContext.
                                                         getInstanceContext(instanceId);
         return instanceContext;
@@ -1175,12 +1435,11 @@ public class ClusterMonitor extends AbstractClusterMonitor {
                 if (!stateChanged && clusterInstance.getStatus() != ClusterStatus.Created) {
                     this.notifyParentMonitor(clusterInstance.getStatus(),
                             clusterInstance.getInstanceId());
-
-                    if (this.hasMonitoringStarted().compareAndSet(false, true)) {
-                        this.startScheduler();
-                        log.info("Monitoring task for Cluster Monitor with cluster id " +
-                                cluster.getClusterId() + " started successfully");
-                    }
+                }
+                if (this.hasMonitoringStarted().compareAndSet(false, true)) {
+                    this.startScheduler();
+                    log.info("Monitoring task for Cluster Monitor with cluster id " +
+                            cluster.getClusterId() + " started successfully");
                 }
             } else {
                 createClusterInstance(cluster.getServiceName(), cluster.getClusterId(), null, parentInstanceId, partitionId,

@@ -27,15 +27,16 @@ public class Member {
 
     private String serviceName;
     private String clusterId;
-    private String instanceId;
     private String clusterInstanceId;
     private String networkPartitionId;
     private String partitionId;
     private String memberId;
     private String status;
-    private String memberIp;
+    private String defaultPrivateIP;
+    private List<String> memberPrivateIPs;
     private String lbClusterId;
-    private String memberPublicIp;
+    private String defaultPublicIP;
+    private List<String> memberPublicIPs;
     private List<PropertyBean> property;
 
     public String getServiceName() {
@@ -77,8 +78,24 @@ public class Member {
     public void setMemberId(String memberId) {
         this.memberId = memberId;
     }
+    
+    public List<String> getMemberPrivateIPs() {
+		return memberPrivateIPs;
+	}
 
-    public String getStatus() {
+	public void setMemberPrivateIPs(List<String> memberPrivateIPs) {
+		this.memberPrivateIPs = memberPrivateIPs;
+	}
+
+	public List<String> getMemberPublicIPs() {
+		return memberPublicIPs;
+	}
+
+	public void setMemberPublicIPs(List<String> memberPublicIPs) {
+		this.memberPublicIPs = memberPublicIPs;
+	}
+
+	public String getStatus() {
         return status;
     }
 
@@ -86,12 +103,12 @@ public class Member {
         this.status = status;
     }
 
-    public String getMemberIp() {
-        return memberIp;
+    public String getDefaultPrivateIP() {
+        return defaultPrivateIP;
     }
 
-    public void setMemberIp(String memberIp) {
-        this.memberIp = memberIp;
+    public void setDefaultPrivateIP(String defaultPrivateIP) {
+        this.defaultPrivateIP = defaultPrivateIP;
     }
 
     public String getLbClusterId() {
@@ -102,12 +119,12 @@ public class Member {
         this.lbClusterId = lbClusterId;
     }
 
-    public String getMemberPublicIp() {
-        return memberPublicIp;
+    public String getDefaultPublicIP() {
+        return defaultPublicIP;
     }
 
-    public void setMemberPublicIp(String memberPublicIp) {
-        this.memberPublicIp = memberPublicIp;
+    public void setDefaultPublicIP(String defaultPublicIP) {
+        this.defaultPublicIP = defaultPublicIP;
     }
 
     public List<PropertyBean> getProperty() {
@@ -116,14 +133,6 @@ public class Member {
 
     public void setProperty(List<PropertyBean> property) {
         this.property = property;
-    }
-
-    public String getInstanceId() {
-        return instanceId;
-    }
-
-    public void setInstanceId(String instanceId) {
-        this.instanceId = instanceId;
     }
 
     public String getClusterInstanceId() {
@@ -139,13 +148,14 @@ public class Member {
         return "Member [serviceName=" + getServiceName()
                 + ", clusterId=" + getClusterId()
                 + ", memberId=" + getMemberId()
-                + ", instanceId=" + getInstanceId()
                 + ", clusterInstanceId=" + getClusterInstanceId()
                 + ", networkPartitionId=" + getNetworkPartitionId()
                 + ", partitionId=" + getPartitionId()
                 + ", status=" + getStatus()
-                + ", memberIp=" + getMemberIp()
-                + ", memberPublicIp=" + getMemberPublicIp()
+                + ", defaultPrivateIP=" + getDefaultPrivateIP()
+                + ", memberPrivateIPs=" + memberPrivateIPs.toString()
+                + ", defaultPublicIP=" + getDefaultPublicIP()
+                + ", memberPublicIPs=" + memberPublicIPs.toString()
                 + ", lbClusterId=" + getLbClusterId()
                 + ", property=" + getProperty() + "]";
     }

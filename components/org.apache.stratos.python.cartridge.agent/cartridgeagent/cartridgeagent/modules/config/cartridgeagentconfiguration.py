@@ -35,6 +35,8 @@ class CartridgeAgentConfiguration:
             self.properties = None
             """ :type : ConfigParser.SafeConfigParser """
 
+            self.application_id = None
+            """ :type : str """
             self.service_group = None
             """ :type : str  """
             self.is_clustered = False
@@ -118,15 +120,15 @@ class CartridgeAgentConfiguration:
                 # self.__isClustered = self.payload_params[
                 # cartridgeagentconstants.CLUSTERING] if cartridgeagentconstants.CLUSTERING in self.payload_params else None
 
+                self.application_id = self.read_property(cartridgeagentconstants.APPLICATION_ID)
                 self.service_name = self.read_property(cartridgeagentconstants.SERVICE_NAME)
                 self.cluster_id = self.read_property(cartridgeagentconstants.CLUSTER_ID)
                 self.cluster_instance_id= self.read_property(cartridgeagentconstants.CLUSTER_INSTANCE_ID)
-                self.member_id = self.get_member_id(cartridgeagentconstants.MEMBER_ID)
-                self.instance_id= self.read_property(cartridgeagentconstants.INSTANCE_ID)
+                self.member_id = self.read_property(cartridgeagentconstants.MEMBER_ID)
                 self.network_partition_id = self.read_property(cartridgeagentconstants.NETWORK_PARTITION_ID, False)
                 self.partition_id = self.read_property(cartridgeagentconstants.PARTITION_ID, False)
                 self.cartridge_key = self.read_property(cartridgeagentconstants.CARTRIDGE_KEY)
-                self.app_path = self.read_property(cartridgeagentconstants.APP_PATH, False)
+                self.app_path = self.read_property(cartridgeagentconstants.APPLICATION_PATH, False)
                 self.repo_url = self.read_property(cartridgeagentconstants.REPO_URL, False)
                 self.ports = str(self.read_property(cartridgeagentconstants.PORTS)).split("|")
 
@@ -166,8 +168,8 @@ class CartridgeAgentConfiguration:
                     cartridgeagentconstants.LISTEN_ADDRESS, False)
 
                 try:
-                    int_repo_str = self.read_property(cartridgeagentconstants.PROVIDER)
-                    self.is_internal_repo = True if str(int_repo_str).strip().lower() == cartridgeagentconstants.INTERNAL else False
+                    int_repo_str = self.read_property(cartridgeagentconstants.INTERNAL)
+                    self.is_internal_repo = True if str(int_repo_str).strip().lower() == "true" else False
                 except ParameterNotFoundException:
                     self.log.info(" INTERNAL payload parameter is not found")
                     self.is_internal_repo = False
@@ -232,7 +234,6 @@ class CartridgeAgentConfiguration:
             self.log.debug("cluster-id: %r" % self.cluster_id)
             self.log.debug("cluster-instance-id: %r" % self.cluster_instance_id)
             self.log.debug("member-id: %r" % self.member_id)
-            self.log.debug("instance-id: %r" % self.instance_id)
             self.log.debug("network-partition-id: %r" % self.network_partition_id)
             self.log.debug("partition-id: %r" % self.partition_id)
             self.log.debug("cartridge-key: %r" % self.cartridge_key)
@@ -252,16 +253,10 @@ class CartridgeAgentConfiguration:
             """
             try:
                 member_id = self.read_property(member_id_field)
+                return member_id
             except ParameterNotFoundException:
-                try:
-                    self.log.info("Reading hostname from container")
-                    member_id = socket.gethostname()
-                except:
-                    self.log.exception("Hostname can not be resolved")
-                    member_id = "unknown"
-
-            self.log.debug("MemberId  is taking the value of hostname : [" + member_id + "] ")
-            return member_id
+                self.log.debug("Member id not found")
+                return member_id
 
         def __read_conf_file(self):
             """
@@ -318,8 +313,8 @@ class CartridgeAgentConfiguration:
             """
 
             if self.properties.has_option("agent", property_key):
-                self.log.debug("Has key: %r" % property_key)
                 temp_str = self.properties.get("agent", property_key)
+                self.log.debug("Reading property: %s = %s", property_key, temp_str)
                 if temp_str != "" and temp_str is not None:
                     if str(temp_str).strip().lower() == "null":
                         return ""
@@ -328,6 +323,7 @@ class CartridgeAgentConfiguration:
 
             if property_key in self.payload_params:
                 temp_str = self.payload_params[property_key]
+                self.log.debug("Reading payload parameter: %s = %s", property_key, temp_str)
                 if temp_str != "" and temp_str is not None:
                     if str(temp_str).strip().lower() == "null":
                         return ""

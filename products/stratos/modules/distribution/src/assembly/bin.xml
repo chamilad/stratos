@@ -53,6 +53,7 @@
 
 		<exclude>**/repository/conf/log4j.properties</exclude>
   		<exclude>**/repository/conf/data-bridge/**</exclude>
+  		<exclude>**/repository/resources/security/client-truststore.jks</exclude>
             </excludes>
         </fileSet>
 	<!-- Copying p2 profile and osgi bundles-->
@@ -681,6 +682,12 @@
             <fileMode>600</fileMode>
         </file>
         <file>
+            <source>src/main/conf/security/client-truststore.jks</source>
+            <outputDirectory>${pom.artifactId}-${pom.version}/repository/resources/security/</outputDirectory>
+            <filtered>false</filtered>
+            <fileMode>600</fileMode>
+        </file>
+        <file>
             <source>src/main/conf/axis2/tenant-axis2.xml</source>
             <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/axis2/</outputDirectory>
             <filtered>true</filtered>
@@ -722,27 +729,6 @@
             <filtered>true</filtered>
             <fileMode>600</fileMode>
         </file>
-                <!-- container-drools files -->
-        <file>
-            <source>src/main/conf/drools/container-mincheck.drl</source>
-            <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
-            <filtered>true</filtered>
-            <fileMode>600</fileMode>
-        </file>
-        <file>
-            <source>src/main/conf/drools/container-obsoletecheck.drl</source>
-            <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
-            <filtered>true</filtered>
-            <fileMode>600</fileMode>
-        </file>
-        <file>
-            <source>src/main/conf/drools/container-scaling.drl</source>
-            <outputDirectory>${pom.artifactId}-${pom.version}/repository/conf/drools</outputDirectory>
-            <filtered>true</filtered>
-            <fileMode>600</fileMode>
-        </file>
-		<!-- container-drools files -->
-		<!-- /drools files end-->
 		<!-- autoscaler -->
         <file>
             <source>${project.basedir}/INSTALL.txt</source>

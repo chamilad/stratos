@@ -72,11 +72,12 @@ public class CloudControllerClient {
             String hostname = conf.getString("autoscaler.cloudController.hostname", "localhost");
             String epr = "https://" + hostname + ":" + port + "/" + Constants.CLOUD_CONTROLLER_SERVICE_SFX;
             int cloudControllerClientTimeout = conf.getInt("autoscaler.cloudController.clientTimeout", 180000);
+
             stub = new CloudControllerServiceStub(epr);
             stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, cloudControllerClientTimeout);
             stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT, cloudControllerClientTimeout);
         } catch (Exception e) {
-            log.error("Stub init error", e);
+            log.error("Could not initialize cloud controller client", e);
         }
     }
     
@@ -116,20 +117,25 @@ public class CloudControllerClient {
                 new org.apache.stratos.cloud.controller.stub.domain.Partition[partitions.length];
 
         for(int i = 0; i < partitions.length; i++) {
-            partitions1[i] = convertTOCCPartition(partitions[i]);
+            partitions1[i] = convertASPartitionTOCCPartition(partitions[i]);
         }
         return partitions1;
     }
 
-    private org.apache.stratos.cloud.controller.stub.domain.Partition convertTOCCPartition(org.apache.stratos.autoscaler.pojo.policy.deployment.partition.network.Partition partition) {
-        org.apache.stratos.cloud.controller.stub.domain.Partition partition1 = new
+    private org.apache.stratos.cloud.controller.stub.domain.Partition
+        convertASPartitionTOCCPartition(org.apache.stratos.autoscaler.pojo.policy.deployment.partition.network.Partition partition) {
+
+        org.apache.stratos.cloud.controller.stub.domain.Partition ccPartition = new
                 org.apache.stratos.cloud.controller.stub.domain.Partition();
 
-        partition1.setId(partition.getId());
-        partition1.setProvider(partition.getProvider());
-        partition1.setProperties(AutoscalerUtil.toStubProperties(partition.getProperties()));
+        ccPartition.setId(partition.getId());
+        ccPartition.setProvider(partition.getProvider());
+        ccPartition.setDescription(partition.getDescription());
+        ccPartition.setKubernetesClusterId(partition.getKubernetesClusterId());
+        ccPartition.setIsPublic(partition.getIsPublic());
+        ccPartition.setProperties(AutoscalerUtil.toStubProperties(partition.getProperties()));
 
-        return partition1;
+        return ccPartition;
     }
 
     /*
@@ -172,7 +178,7 @@ public class CloudControllerClient {
             XMLConfiguration conf = ConfUtil.getInstance(null).getConfiguration();
             long expiryTime = conf.getLong(StratosConstants.OBSOLETED_VM_MEMBER_EXPIRY_TIMEOUT, 86400000);
             if (log.isDebugEnabled()) {
-                log.debug("Member Obsolete Expiry Time is set to: " + expiryTime);
+                log.debug("Member obsolete expiry time is set to: " + expiryTime);
             }
 
             InstanceContext instanceContext = new InstanceContext();
@@ -214,6 +220,10 @@ public class CloudControllerClient {
             String message = e.getFaultMessage().getInvalidIaasProviderException().getMessage();
             log.error(message, e);
             throw new SpawningException(message, e);
+        } catch (CloudControllerServiceCloudControllerExceptionException e) {
+            String message = e.getMessage();
+            log.error(message, e);
+            throw new SpawningException(message, e);
         }
     }
 
@@ -244,17 +254,17 @@ public class CloudControllerClient {
                                                        Set<ApplicationClusterContext> appClusterContexts) {
         List<org.apache.stratos.cloud.controller.stub.domain.ApplicationClusterContext> contextDTOs =
                                         new ArrayList<org.apache.stratos.cloud.controller.stub.domain.ApplicationClusterContext>();
-        for(ApplicationClusterContext context : appClusterContexts) {
+        for(ApplicationClusterContext applicationClusterContext : appClusterContexts) {
             org.apache.stratos.cloud.controller.stub.domain.ApplicationClusterContext dto = new org.apache.stratos.cloud.controller.stub.domain.ApplicationClusterContext();
-            dto.setClusterId(context.getClusterId());
-            dto.setAutoscalePolicyName(context.getAutoscalePolicyName());
-            dto.setDeploymentPolicyName(context.getDeploymentPolicyName());
-            dto.setCartridgeType(context.getCartridgeType());
-            dto.setHostName(context.getHostName());
-            dto.setTenantRange(context.getTenantRange());
-            dto.setTextPayload(context.getTextPayload());
-            dto.setLbCluster(context.isLbCluster());
-            dto.setProperties(AutoscalerUtil.toStubProperties(context.getProperties()));
+            dto.setClusterId(applicationClusterContext.getClusterId());
+            dto.setAutoscalePolicyName(applicationClusterContext.getAutoscalePolicyName());
+            dto.setDeploymentPolicyName(applicationClusterContext.getDeploymentPolicyName());
+            dto.setCartridgeType(applicationClusterContext.getCartridgeType());
+            dto.setHostName(applicationClusterContext.getHostName());
+            dto.setTenantRange(applicationClusterContext.getTenantRange());
+            dto.setTextPayload(applicationClusterContext.getTextPayload());
+            dto.setLbCluster(applicationClusterContext.isLbCluster());
+            dto.setProperties(AutoscalerUtil.toStubProperties(applicationClusterContext.getProperties()));
             contextDTOs.add(dto);
         }
 
@@ -293,7 +303,7 @@ public class CloudControllerClient {
         }
     }
 
-    public synchronized void terminate(String memberId) throws TerminationException {
+    public synchronized void terminateInstance(String memberId) throws TerminationException {
         try {
             if (log.isInfoEnabled()) {
                 log.info(String.format("Terminating instance via cloud controller: [member] %s", memberId));
@@ -314,6 +324,10 @@ public class CloudControllerClient {
             throw new TerminationException(msg, e);
         } catch (CloudControllerServiceInvalidCartridgeTypeExceptionException e) {
             String msg = e.getFaultMessage().getInvalidCartridgeTypeException().getMessage();
+            log.error(msg, e);
+            throw new TerminationException(msg, e);
+        } catch (CloudControllerServiceCloudControllerExceptionException e) {
+            String msg = e.getMessage();
             log.error(msg, e);
             throw new TerminationException(msg, e);
         }

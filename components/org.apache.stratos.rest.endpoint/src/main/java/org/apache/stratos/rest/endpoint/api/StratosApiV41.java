@@ -18,30 +18,25 @@
  */
 package org.apache.stratos.rest.endpoint.api;
 
-import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-//import org.apache.stratos.common.beans.ApplicationBean;
 import org.apache.stratos.common.beans.StratosApiResponse;
 import org.apache.stratos.common.beans.UserInfoBean;
 import org.apache.stratos.common.beans.autoscaler.policy.autoscale.AutoscalePolicy;
 import org.apache.stratos.common.beans.autoscaler.policy.deployment.DeploymentPolicy;
 import org.apache.stratos.common.beans.cartridge.definition.CartridgeDefinitionBean;
-import org.apache.stratos.common.beans.kubernetes.KubernetesGroup;
+import org.apache.stratos.common.beans.kubernetes.KubernetesCluster;
 import org.apache.stratos.common.beans.kubernetes.KubernetesHost;
 import org.apache.stratos.common.beans.kubernetes.KubernetesMaster;
 import org.apache.stratos.common.beans.repositoryNotificationInfoBean.Payload;
 import org.apache.stratos.common.beans.topology.ApplicationInfoBean;
-import org.apache.stratos.common.beans.topology.Cluster;
 import org.apache.stratos.common.util.ClaimsMgtUtil;
 import org.apache.stratos.common.util.CommonUtil;
-import org.apache.stratos.manager.composite.application.beans.ApplicationDefinition;
-import org.apache.stratos.manager.dto.Cartridge;
-import org.apache.stratos.manager.grouping.definitions.ServiceGroupDefinition;
-import org.apache.stratos.manager.subscription.ApplicationSubscription;
-import org.apache.stratos.manager.subscription.CartridgeSubscription;
-import org.apache.stratos.manager.user.mgt.StratosUserManager;
-import org.apache.stratos.manager.user.mgt.exception.UserManagerException;
+import org.apache.stratos.common.beans.ApplicationDefinition;
+import org.apache.stratos.common.beans.ApplicationSubscription;
+import org.apache.stratos.common.beans.ServiceGroupDefinition;
+import org.apache.stratos.manager.user.management.StratosUserManager;
+import org.apache.stratos.manager.user.management.exception.UserManagerException;
 import org.apache.stratos.rest.endpoint.ServiceHolder;
 import org.apache.stratos.rest.endpoint.Utils;
 import org.apache.stratos.rest.endpoint.annotation.AuthorizationAction;
@@ -74,8 +69,6 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-
-import static javax.ws.rs.core.Response.ResponseBuilder;
 
 /**
  * Stratos API v4.1 for Stratos 4.1.0 release.
@@ -145,8 +138,7 @@ public class StratosApiV41 extends AbstractApi {
     @AuthorizationAction("/permission/admin/manage/add/cartridgeDefinition")
     public Response addCartridge(CartridgeDefinitionBean cartridgeDefinitionBean)
             throws RestAPIException {
-        StratosApiV41Utils.addCartridge(cartridgeDefinitionBean, getConfigContext(), getUsername(),
-                getTenantDomain());
+        StratosApiV41Utils.addCartridge(cartridgeDefinitionBean);
         URI url = uriInfo.getAbsolutePathBuilder().path(cartridgeDefinitionBean.getType()).build();
         return Response.created(url).build();
 
@@ -397,7 +389,7 @@ public class StratosApiV41 extends AbstractApi {
      * @throws RestAPIException the rest api exception
      */
     @POST
-    @Path("/application/{applicationId}/deploy")
+    @Path("/applications/{applicationId}/deploy")
     @Produces("application/json")
     @Consumes("application/json")
     @AuthorizationAction("/permission/protected/manage/monitor/tenants")
@@ -428,7 +420,7 @@ public class StratosApiV41 extends AbstractApi {
      * @return the response
      * @throws RestAPIException the rest api exception
      */
-    @DELETE
+    @POST
     @Path("/applications/{applicationId}/undeploy")
     @Produces("application/json")
     @Consumes("application/json")
@@ -595,7 +587,7 @@ public class StratosApiV41 extends AbstractApi {
     @Consumes("application/json")
     @AuthorizationAction("/permission/protected/manage/monitor/tenants")
     public Response getSubscriptionsForApplication(@PathParam("applicationId") String applicationId) throws RestAPIException {
-        ApplicationSubscription subscriptions = StratosApiV41Utils.getApplicationSubscriptions(applicationId, getConfigContext());
+        List<ApplicationSubscription> subscriptions = StratosApiV41Utils.getApplicationSubscriptions(applicationId);
         if (subscriptions == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -615,11 +607,7 @@ public class StratosApiV41 extends AbstractApi {
     @Consumes("application/json")
     @AuthorizationAction("/permission/admin/manage/view/cartridge")
     public Response getSubscribedCartridgesForServiceGroup(@PathParam("serviceGroupId") String serviceGroup) throws RestAPIException {
-        List<Cartridge> cartridgeList = StratosApiV41Utils.getSubscriptions(null, serviceGroup, getConfigContext());
-        // Following is very important when working with axis2
-        ResponseBuilder rb = Response.ok();
-        rb.entity(cartridgeList.isEmpty() ? new Cartridge[0] : cartridgeList.toArray(new Cartridge[cartridgeList.size()]));
-        return rb.build();
+        throw new RestAPIException("Not implemented");
     }
 
     // API methods for clusters
@@ -630,7 +618,8 @@ public class StratosApiV41 extends AbstractApi {
     @Consumes("application/json")
     @AuthorizationAction("/permission/admin/manage/view/cluster")
     public Response getClustersForTenant() throws RestAPIException {
-        return Response.ok().entity(StratosApiV41Utils.getClustersForTenant(getConfigContext())).build();
+//        return Response.ok().entity(StratosApiV41Utils.getClustersForTenant(getConfigContext())).build();
+        throw new RestAPIException("Not implemented");
     }
 
     @GET
@@ -640,9 +629,10 @@ public class StratosApiV41 extends AbstractApi {
     @AuthorizationAction("/permission/admin/manage/view/cluster")
     public Response getClustersForCartridge(@PathParam("cartridgeType") String cartridgeType) throws RestAPIException {
 
-        ResponseBuilder rb = Response.ok();
-        rb.entity(StratosApiV41Utils.getClustersForTenantAndCartridgeType(getConfigContext(), cartridgeType));
-        return rb.build();
+//        ResponseBuilder rb = Response.ok();
+//        rb.entity(StratosApiV41Utils.getClustersForTenantAndCartridgeType(getConfigContext(), cartridgeType));
+//        return rb.build();
+        throw new RestAPIException("Not implemented");
     }
 
     @GET
@@ -651,24 +641,25 @@ public class StratosApiV41 extends AbstractApi {
     @Consumes("application/json")
     @AuthorizationAction("/permission/admin/manage/view/cluster")
     public Response getClusterForTenant(@PathParam("clusterId") String clusterId) throws RestAPIException {
-        Cluster cluster = null;
-        if (log.isDebugEnabled()) {
-            log.debug("Finding cluster for [id]: " + clusterId);
-        }
-        Cluster[] clusters = StratosApiV41Utils.getClustersForTenant(getConfigContext());
-        if (log.isDebugEnabled()) {
-            log.debug("Clusters retrieved from backend for cluster [id]: " + clusterId);
-            for (Cluster c : clusters) {
-                log.debug(c + "\n");
-            }
-        }
-        for (Cluster clusterObj : clusters) {
-            if (clusterObj.getClusterId().equals(clusterId)) {
-                cluster = clusterObj;
-                break;
-            }
-        }
-        return Response.ok().entity(cluster).build();
+//        Cluster cluster = null;
+//        if (log.isDebugEnabled()) {
+//            log.debug("Finding cluster for [id]: " + clusterId);
+//        }
+//        Cluster[] clusters = StratosApiV41Utils.getClustersForTenant(getConfigContext());
+//        if (log.isDebugEnabled()) {
+//            log.debug("Clusters retrieved from backend for cluster [id]: " + clusterId);
+//            for (Cluster c : clusters) {
+//                log.debug(c + "\n");
+//            }
+//        }
+//        for (Cluster clusterObj : clusters) {
+//            if (clusterObj.getClusterId().equals(clusterId)) {
+//                cluster = clusterObj;
+//                break;
+//            }
+//        }
+//        return Response.ok().entity(cluster).build();
+        throw new RestAPIException("Not implemented");
     }
 
     // API methods for tenants
@@ -1228,13 +1219,10 @@ public class StratosApiV41 extends AbstractApi {
         if (log.isDebugEnabled()) {
             log.debug(String.format("Synchronizing Git repository for alias '%s'", alias));
         }
-        CartridgeSubscription cartridgeSubscription = StratosApiV41Utils.getCartridgeSubscription(alias, getConfigContext());
-        if (cartridgeSubscription != null && cartridgeSubscription.getRepository() != null && log.isDebugEnabled()) {
-            log.debug(String.format("Found subscription for '%s'. Git repository: %s", alias, cartridgeSubscription
-                    .getRepository().getUrl()));
-        }
-        StratosApiV41Utils.synchronizeRepository(cartridgeSubscription);
-        return Response.noContent().build();
+
+//        StratosApiV41Utils.synchronizeRepository(cartridgeSubscription);
+//        return Response.noContent().build();
+        throw new RestAPIException("Not implemented");
     }
 
     // API methods for users
@@ -1372,7 +1360,7 @@ public class StratosApiV41 extends AbstractApi {
     /**
      * Deploy kubernetes host cluster.
      *
-     * @param kubernetesGroup the kubernetes group
+     * @param kubernetesCluster the kubernetes cluster
      * @return the response
      * @throws RestAPIException the rest api exception
      */
@@ -1381,10 +1369,10 @@ public class StratosApiV41 extends AbstractApi {
     @Produces("application/json")
     @Consumes("application/json")
     @AuthorizationAction("/permission/admin/manage/add/kubernetes")
-    public Response addKubernetesHostCluster(KubernetesGroup kubernetesGroup) throws RestAPIException {
+    public Response addKubernetesHostCluster(KubernetesCluster kubernetesCluster) throws RestAPIException {
 
-        StratosApiV41Utils.addKubernetesGroup(kubernetesGroup);
-        URI url = uriInfo.getAbsolutePathBuilder().path(kubernetesGroup.getGroupId()).build();
+        StratosApiV41Utils.addKubernetesCluster(kubernetesCluster);
+        URI url = uriInfo.getAbsolutePathBuilder().path(kubernetesCluster.getClusterId()).build();
         return Response.created(url).build();
     }
 
@@ -1459,7 +1447,7 @@ public class StratosApiV41 extends AbstractApi {
     @Consumes("application/json")
     @AuthorizationAction("/permission/admin/manage/view/kubernetes")
     public Response getKubernetesHostClusters() throws RestAPIException {
-        return Response.ok().entity(StratosApiV41Utils.getAvailableKubernetesGroups()).build();
+        return Response.ok().entity(StratosApiV41Utils.getAvailableKubernetesClusters()).build();
     }
 
     /**
@@ -1476,7 +1464,7 @@ public class StratosApiV41 extends AbstractApi {
     @AuthorizationAction("/permission/admin/manage/view/kubernetes")
     public Response getKubernetesHostCluster(@PathParam("kubernetesClusterId") String kubernetesClusterId) throws RestAPIException {
         try {
-            return Response.ok().entity(StratosApiV41Utils.getKubernetesGroup(kubernetesClusterId)).build();
+            return Response.ok().entity(StratosApiV41Utils.getKubernetesCluster(kubernetesClusterId)).build();
         } catch (RestAPIException e) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -1536,7 +1524,7 @@ public class StratosApiV41 extends AbstractApi {
     @AuthorizationAction("/permission/admin/manage/add/kubernetes")
     public Response removeKubernetesHostCluster(@PathParam("kubernetesClusterId") String kubernetesClusterId) throws RestAPIException {
         try {
-            StratosApiV41Utils.removeKubernetesGroup(kubernetesClusterId);
+            StratosApiV41Utils.removeKubernetesCluster(kubernetesClusterId);
         } catch (RestAPIException e) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }

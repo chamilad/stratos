@@ -333,7 +333,7 @@ def execute_volume_mount_extension(persistance_mappings_payload):
         output, errors = execute_command(command + " " + persistance_mappings_payload)
         log.debug("Volume mount script returned: %r" % output)
     except:
-        log.exception("Could not execute Volume mount extension")
+        log.error("Could not execute volume mount extension")
 
 
 def execute_cleanup_extension():
@@ -401,7 +401,7 @@ def add_payload_parameters(env_params):
     :return: Dictionary with updated parameters
     :rtype: dict[str, str]
     """
-    env_params["STRATOS_APP_PATH"] = cartridge_agent_config.app_path
+    env_params["STRATOS_APPLICATION_PATH"] = cartridge_agent_config.app_path
     env_params["STRATOS_PARAM_FILE_PATH"] = cartridge_agent_config.read_property(
         cartridgeagentconstants.PARAM_FILE_PATH, False)
     env_params["STRATOS_SERVICE_NAME"] = cartridge_agent_config.service_name

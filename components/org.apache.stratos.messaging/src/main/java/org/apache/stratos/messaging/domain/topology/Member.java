@@ -38,7 +38,6 @@ public class Member implements Serializable, LifeCycleStateTransitionBehavior<Me
     private final String serviceName;
     private final String clusterId;
     private final String memberId;
-    private final String instanceId;
     private final String clusterInstanceId;
     private final String networkPartitionId;
     private final String partitionId;
@@ -48,20 +47,21 @@ public class Member implements Serializable, LifeCycleStateTransitionBehavior<Me
     // Key: Port.proxy
     @XmlJavaTypeAdapter(MapAdapter.class)
     private final Map<Integer, Port> portMap;
-    private String memberPublicIp;
+    private List<String> memberPublicIPs;
+    private String defaultPublicIP;
     //private MemberStatus status;
-    private String memberIp;
+    private List<String> memberPrivateIPs;
+    private String defaultPrivateIP;
     @XmlJavaTypeAdapter(MapAdapter.class)
     private Properties properties;
     private String lbClusterId;
     // instance id to use if snapshot wise group scaling is enabled
     private LifeCycleStateManager<MemberStatus> memberStateManager;
 
-    public Member(String serviceName, String clusterId, String memberId, String instanceId, String clusterInstanceId,
+    public Member(String serviceName, String clusterId, String memberId, String clusterInstanceId,
                   String networkPartitionId, String partitionId, long initTime) {
         this.serviceName = serviceName;
         this.clusterId = clusterId;
-        this.instanceId = instanceId;
         this.clusterInstanceId = clusterInstanceId;
         this.networkPartitionId = networkPartitionId;
         this.partitionId = partitionId;
@@ -148,12 +148,20 @@ public class Member implements Serializable, LifeCycleStateTransitionBehavior<Me
         this.properties = properties;
     }
 
-    public String getMemberIp() {
-        return memberIp;
+    public String getDefaultPrivateIP() {
+        return defaultPrivateIP;
     }
 
-    public void setMemberIp(String memberIp) {
-        this.memberIp = memberIp;
+    public void setDefaultPrivateIP(String defaultPrivateIP) {
+        this.defaultPrivateIP = defaultPrivateIP;
+    }
+    
+    public List<String> getMemberPrivateIPs() {
+    	return memberPrivateIPs;
+    }
+    
+    public void setMemberPrivateIPs(List<String> memberPrivateIPs) {
+    	this.memberPrivateIPs = memberPrivateIPs;
     }
 
     public String getPartitionId() {
@@ -172,16 +180,20 @@ public class Member implements Serializable, LifeCycleStateTransitionBehavior<Me
         return networkPartitionId;
     }
 
-    public String getMemberPublicIp() {
-        return memberPublicIp;
+    public String getDefaultPublicIP() {
+        return defaultPublicIP;
     }
 
-    public void setMemberPublicIp(String memberPublicIp) {
-        this.memberPublicIp = memberPublicIp;
+    public void setDefaultPublicIP(String defaultPublicIP) {
+        this.defaultPublicIP = defaultPublicIP;
     }
-
-    public String getInstanceId() {
-        return instanceId;
+    
+    public List<String> getMemberPublicIPs() {
+    	return memberPublicIPs;
+    }
+    
+    public void setMemberPublicIPs(List<String> memberPublicIPs) {
+    	this.memberPublicIPs = memberPublicIPs;
     }
 
     public String getClusterInstanceId() {
@@ -193,15 +205,16 @@ public class Member implements Serializable, LifeCycleStateTransitionBehavior<Me
         return "Member [serviceName=" + getServiceName()
                 + ", clusterId=" + getClusterId()
                 + ", memberId=" + getMemberId()
-                + ", instanceId=" + getInstanceId()
                 + ", clusterInstanceId=" + getClusterInstanceId()
                 + ", networkPartitionId=" + getNetworkPartitionId()
                 + ", partitionId=" + getPartitionId()
                 + ", initTime=" + getInitTime()
                 + ", portMap=" + getPorts()
-                + ", memberPublicIp=" + getMemberPublicIp()
+                + ", defaultPublicIP=" + getDefaultPublicIP()
+                + ", memberPublicIPs=" + memberPublicIPs.toString()
                 + ", status=" + getStatus()
-                + ", memberIp=" + getMemberIp()
+                + ", defaultPrivateIP=" + getDefaultPrivateIP()
+                + ", memberPrivateIPs=" + memberPrivateIPs.toString()
                 + ", lbClusterId=" + getLbClusterId()
                 + ", properties=" + getProperties() + "]";
     }
