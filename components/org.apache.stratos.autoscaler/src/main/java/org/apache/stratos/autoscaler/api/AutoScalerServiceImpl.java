@@ -291,6 +291,18 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
                 log.info("Starting to undeploy application: [application-id] " + applicationId);
             }
 
+            ApplicationContext application = AutoscalerContext.getInstance().getApplicationContext(applicationId);
+            if ( application == null){
+                String msg = String.format("Application not found : [application-id] %s", applicationId);
+                throw new RuntimeException(msg);
+            }
+
+            if (!application.getStatus().equals(ApplicationContext.STATUS_DEPLOYED)) {
+                String message = String.format("Application is not deployed: [application-id] %s", applicationId);
+                log.error(message);
+                throw new RuntimeException(message);
+            }
+
             ApplicationBuilder.handleApplicationUndeployed(applicationId);
 
             ApplicationContext applicationContext = AutoscalerContext.getInstance().getApplicationContext(applicationId);
@@ -312,7 +324,6 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
 
     @Override
     public void deleteApplication(String applicationId) {
-        AutoscalerContext.getInstance().removeApplicationContext(applicationId);
         //TODO oAuth application/service provider deletion is removed since app name is random. It should be equal to
         // name of the composite application.
         /*
@@ -329,10 +340,12 @@ public class AutoScalerServiceImpl implements AutoScalerServiceInterface {
             e.printStackTrace();
         }
         */
-        if(log.isInfoEnabled()) {
-            log.info(String.format("Application deleted successfully: [application-id] ",
-                    applicationId));
+
+        if (AutoscalerContext.getInstance().removeApplicationContext(applicationId) == null) {
+            String msg = String.format("Application not found : [application-id] %s", applicationId);
+            throw new RuntimeException(msg);
         }
+        log.info(String.format("Application deleted successfully: [application-id] ", applicationId));
     }
 
     public void updateClusterMonitor(String clusterId, Properties properties) throws InvalidArgumentException {
