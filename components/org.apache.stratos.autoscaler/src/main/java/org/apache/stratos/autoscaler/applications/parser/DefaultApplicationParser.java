@@ -42,10 +42,7 @@ import org.apache.stratos.autoscaler.registry.RegistryManager;
 import org.apache.stratos.cloud.controller.stub.domain.CartridgeInfo;
 import org.apache.stratos.common.Properties;
 import org.apache.stratos.common.Property;
-import org.apache.stratos.messaging.domain.applications.Application;
-import org.apache.stratos.messaging.domain.applications.ClusterDataHolder;
-import org.apache.stratos.messaging.domain.applications.DependencyOrder;
-import org.apache.stratos.messaging.domain.applications.Group;
+import org.apache.stratos.messaging.domain.applications.*;
 import org.wso2.carbon.identity.oauth.stub.OAuthAdminServiceException;
 
 import javax.crypto.Cipher;
@@ -192,7 +189,7 @@ public class DefaultApplicationParser implements ApplicationParser {
             // get top level Subscribables
             if (appCtxt.getComponents().getCartridgeContexts() != null) {
                 clusterDataMap = parseLeafLevelSubscriptions(appCtxt.getApplicationId(), appCtxt.getTenantId(),
-                        application.getKey(), null, Arrays.asList(appCtxt.getComponents().getCartridgeContexts()));
+                        application.getKey(), null, Arrays.asList(appCtxt.getComponents().getCartridgeContexts()),null);
                 application.setClusterData(clusterDataMap);
             }
 
@@ -238,41 +235,46 @@ public class DefaultApplicationParser implements ApplicationParser {
             }
         }
 
-        String alias;
+        // TODO: Might need to remove following logic
         Properties properties = new Properties();
         for (SubscribableInfoContext subscribableInfoContext : subscribableInfoCtxts.values()) {
-            alias = subscribableInfoContext.getAlias();
-            String username = subscribableInfoContext.getRepoUsername();
-            String password = subscribableInfoContext.getRepoPassword();
-            String repoUrl = subscribableInfoContext.getRepoUrl();
 
+            String alias = subscribableInfoContext.getAlias();
             List<Property> propertyList = new ArrayList<Property>();
-            if (StringUtils.isNotEmpty(username)) {
-                Property property = new Property();
-                property.setName("REPO_USERNAME");
-                property.setValue(username);
-                propertyList.add(property);
-            }
 
-            if (StringUtils.isNotEmpty(password)) {
-                String encryptedPassword = encryptPassword(password, application.getKey());
-                Property property = new Property();
-                property.setName("REPO_PASSWORD");
-                property.setValue(encryptedPassword);
-                propertyList.add(property);
-            }
-
-            if (StringUtils.isNotEmpty(repoUrl)) {
-                Property property = new Property();
-                property.setName("REPO_URL");
-                property.setValue(repoUrl);
-                propertyList.add(property);
-            }
+//            ArtifactRepositoryContext artifactRepositoryContext = subscribableInfoContext.getArtifactRepositoryContext();
+//            if(artifactRepositoryContext != null) {
+//                String username = artifactRepositoryContext.getRepoUsername();
+//                String password = artifactRepositoryContext.getRepoPassword();
+//                String repoUrl = artifactRepositoryContext.getRepoUrl();
+//
+//                if (StringUtils.isNotEmpty(username)) {
+//                    Property property = new Property();
+//                    property.setName("REPO_USERNAME");
+//                    property.setValue(username);
+//                    propertyList.add(property);
+//                }
+//
+//                if (StringUtils.isNotEmpty(password)) {
+//                    String encryptedPassword = encryptPassword(password, application.getKey());
+//                    Property property = new Property();
+//                    property.setName("REPO_PASSWORD");
+//                    property.setValue(encryptedPassword);
+//                    propertyList.add(property);
+//                }
+//
+//                if (StringUtils.isNotEmpty(repoUrl)) {
+//                    Property property = new Property();
+//                    property.setName("REPO_URL");
+//                    property.setValue(repoUrl);
+//                    propertyList.add(property);
+//                }
+//            }
 
             if(propertyList.size() > 0 ) {
                 Property[] properties1 = new Property[propertyList.size()];
                 properties.setProperties(propertyList.toArray(properties1));
-                this.addProperties(alias, properties);
+                addProperties(alias, properties);
             }
         }
 
@@ -298,14 +300,15 @@ public class DefaultApplicationParser implements ApplicationParser {
      */
     private Map<String, ClusterDataHolder> parseLeafLevelSubscriptions(
     		String appId, int tenantId, String key, String groupName,
-            List<CartridgeContext> cartridgeContextList) throws ApplicationDefinitionException {
+            List<CartridgeContext> cartridgeContextList,Set<StartupOrder> dependencyOrder) throws ApplicationDefinitionException {
 
     	 Map<String, ClusterDataHolder> clusterDataMap = new HashMap<String, ClusterDataHolder>();
 
     	 for (CartridgeContext cartridgeContext : cartridgeContextList) {
-
+		     List<String> dependencyClusterIDs = new ArrayList<String>();
     		 String cartridgeType = cartridgeContext.getType();
     		 String subscriptionAlias = cartridgeContext.getSubscribableInfoContext().getAlias();
+
 
     		 // check if a cartridgeInfo with relevant type is already deployed. else, can't continue
              CartridgeInfo cartridgeInfo =  getCartridge(cartridgeType);
@@ -314,7 +317,7 @@ public class DefaultApplicationParser implements ApplicationParser {
                          " ] for Composite Application");
              }
 
-    		// get hostname and cluster id
+    		 // get hostname and cluster id
              ClusterInformation clusterInfo;
              assert cartridgeInfo != null;
              if (cartridgeInfo.getMultiTenant()) {
@@ -325,26 +328,45 @@ public class DefaultApplicationParser implements ApplicationParser {
 
              String hostname = clusterInfo.getHostName(subscriptionAlias, cartridgeInfo.getHostName());
              String clusterId = clusterInfo.getClusterId(subscriptionAlias, cartridgeType);
+             String repoUrl = null;
+             if(cartridgeContext.getSubscribableInfoContext().getArtifactRepositoryContext() != null) {
+                 repoUrl = cartridgeContext.getSubscribableInfoContext().getArtifactRepositoryContext().getRepoUrl();
+             }
 
-             // create and collect this cluster's information
+		     // add relevant information to the map
+		     ClusterDataHolder clusterDataHolder = new ClusterDataHolder(cartridgeType, clusterId);
+		     clusterDataHolder.setMinInstances(cartridgeContext.getCartridgeMin());
+		     clusterDataHolder.setMaxInstances(cartridgeContext.getCartridgeMax());
+		     clusterDataMap.put(subscriptionAlias, clusterDataHolder);
+
+		     //Get dependency cluster id
+		     if (dependencyOrder != null) {
+		    	 for (StartupOrder startupOrder : dependencyOrder) {
+		    		 for (String startupOrderComponent : startupOrder.getStartupOrderComponentList()) {
+		    			 ClusterDataHolder dataHolder = clusterDataMap.get(startupOrderComponent.split("\\.")[1]);
+		    			 dependencyClusterIDs.add(dataHolder.getClusterId());
+		    			 if (startupOrderComponent.equals("cartridge.".concat(subscriptionAlias))) {
+		    				 break;
+		    			 }
+		    		 }
+		    		 
+		    	 }
+			}
+		     String[] arrDependencyClusterIDs = new String[dependencyClusterIDs.size()];
+		     arrDependencyClusterIDs = dependencyClusterIDs.toArray(arrDependencyClusterIDs);
+
+		     // create and collect this cluster's information
              ApplicationClusterContext appClusterCtxt = createApplicationClusterContext(appId, groupName, cartridgeInfo,
-                     key, tenantId, cartridgeContext.getSubscribableInfoContext().getRepoUrl(), subscriptionAlias,
-                     clusterId, hostname, cartridgeContext.getSubscribableInfoContext().getDeploymentPolicy(), false,
+                     key, tenantId, repoUrl, subscriptionAlias, clusterId, hostname,
+                     cartridgeContext.getSubscribableInfoContext().getDeploymentPolicy(), false,
                      cartridgeContext.getSubscribableInfoContext().getDependencyAliases(),
-                     cartridgeContext.getSubscribableInfoContext().getProperties());
+                     cartridgeContext.getSubscribableInfoContext().getProperties(), arrDependencyClusterIDs);
 
              appClusterCtxt.setAutoscalePolicyName(cartridgeContext.getSubscribableInfoContext().getAutoscalingPolicy());
              appClusterCtxt.setProperties(cartridgeContext.getSubscribableInfoContext().getProperties());
              this.applicationClusterContexts.add(appClusterCtxt);
 
-             // add relevant information to the map
-             ClusterDataHolder clusterDataHolder = new ClusterDataHolder(cartridgeType, clusterId);
-             clusterDataHolder.setMinInstances(cartridgeContext.getCartridgeMin());
-             clusterDataHolder.setMaxInstances(cartridgeContext.getCartridgeMax());
-             clusterDataMap.put(subscriptionAlias, clusterDataHolder);
-        }
-
-
+         }
          return clusterDataMap;
     }
 
@@ -469,8 +491,10 @@ public class DefaultApplicationParser implements ApplicationParser {
         DependencyOrder dependencyOrder = new DependencyOrder();
         // create the Dependency Ordering
         String []  startupOrders = getStartupOrderForGroup(groupCtxt.getName(),serviceGroup);
+	    Set<StartupOrder> setStartUpOrder=null;
         if (startupOrders != null) {
-            dependencyOrder.setStartupOrders(ParserUtils.convertStartupOrder(startupOrders, groupCtxt));
+	        setStartUpOrder= ParserUtils.convertStartupOrder(startupOrders, groupCtxt);
+            dependencyOrder.setStartupOrders(setStartUpOrder);
         }
         String[] scaleDependents = getScaleDependentForGroup(groupCtxt.getName(), serviceGroup);
         if(scaleDependents != null) {
@@ -485,7 +509,7 @@ public class DefaultApplicationParser implements ApplicationParser {
         // get group level CartridgeContexts
         if (groupCtxt.getCartridgeContexts() != null) {
             clusterDataMap = parseLeafLevelSubscriptions(appId, tenantId, key, groupCtxt.getName(),
-                    Arrays.asList(groupCtxt.getCartridgeContexts()));
+                    Arrays.asList(groupCtxt.getCartridgeContexts()),setStartUpOrder);
             group.setClusterData(clusterDataMap);
         }
 
@@ -682,6 +706,7 @@ public class DefaultApplicationParser implements ApplicationParser {
      * @param hostname Hostname
      * @param deploymentPolicy Deployment policy used
      * @param isLB if this cluster is an LB
+     * @param dependencyClustorIDs
      * @return ApplicationClusterContext object with relevant information
      *
      * @throws ApplicationDefinitionException If any error occurs
@@ -689,15 +714,15 @@ public class DefaultApplicationParser implements ApplicationParser {
     private ApplicationClusterContext createApplicationClusterContext (String appId, String groupName, CartridgeInfo cartridgeInfo,
                                                                        String subscriptionKey, int tenantId, String repoUrl,
                                                                        String alias, String clusterId, String hostname,
-                                                                       String deploymentPolicy, boolean isLB, String[] dependencyAliases, Properties properties)
+                                                                       String deploymentPolicy, boolean isLB, String[] dependencyAliases, Properties properties,String[] dependencyClustorIDs)
             throws ApplicationDefinitionException {
 
         // Create text payload
         PayloadData payloadData = ApplicationUtils.createPayload(appId, groupName, cartridgeInfo, subscriptionKey, tenantId, clusterId,
-                hostname, repoUrl, alias, null, dependencyAliases, properties, oauthToken);
+                hostname, repoUrl, alias, null, dependencyAliases, properties, oauthToken, dependencyClustorIDs);
 
         String textPayload = payloadData.toString();
-
+		log.info("Payload:::"+textPayload);
         return new ApplicationClusterContext(cartridgeInfo.getType(), clusterId, hostname, textPayload, deploymentPolicy, isLB);
     }
 
