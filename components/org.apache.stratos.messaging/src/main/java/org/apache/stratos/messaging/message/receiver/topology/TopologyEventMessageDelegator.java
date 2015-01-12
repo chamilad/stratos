@@ -33,6 +33,7 @@ import org.apache.stratos.messaging.message.processor.topology.TopologyMessagePr
 class TopologyEventMessageDelegator implements Runnable {
 
     private static final Log log = LogFactory.getLog(TopologyEventMessageDelegator.class);
+
     private MessageProcessorChain processorChain;
     private TopologyEventMessageQueue messageQueue;
     private boolean terminated;

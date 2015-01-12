@@ -33,34 +33,43 @@ import org.apache.stratos.cloud.controller.stub.domain.CartridgeConfig;
 import org.apache.stratos.cloud.controller.stub.domain.CartridgeInfo;
 import org.apache.stratos.cloud.controller.stub.domain.Persistence;
 import org.apache.stratos.cloud.controller.stub.domain.Volume;
-import org.apache.stratos.common.beans.*;
-import org.apache.stratos.common.beans.autoscaler.partition.ApplicationLevelNetworkPartition;
-import org.apache.stratos.common.beans.autoscaler.policy.autoscale.AutoscalePolicy;
-import org.apache.stratos.common.beans.cartridge.definition.CartridgeDefinitionBean;
-import org.apache.stratos.common.beans.cartridge.definition.PersistenceBean;
-import org.apache.stratos.common.beans.cartridge.definition.VolumeBean;
-import org.apache.stratos.common.beans.kubernetes.KubernetesCluster;
-import org.apache.stratos.common.beans.kubernetes.KubernetesHost;
-import org.apache.stratos.common.beans.kubernetes.KubernetesMaster;
-import org.apache.stratos.common.beans.repositoryNotificationInfoBean.Payload;
+import org.apache.stratos.common.beans.PropertyBean;
+import org.apache.stratos.common.beans.application.ApplicationBean;
+import org.apache.stratos.common.beans.application.GroupBean;
+import org.apache.stratos.common.beans.application.domain.mapping.ApplicationDomainMappingsBean;
+import org.apache.stratos.common.beans.application.domain.mapping.DomainMappingBean;
+import org.apache.stratos.common.beans.application.signup.ApplicationSignUpBean;
+import org.apache.stratos.common.beans.artifact.repository.GitNotificationPayloadBean;
+import org.apache.stratos.common.beans.cartridge.CartridgeBean;
+import org.apache.stratos.common.beans.cartridge.PersistenceBean;
+import org.apache.stratos.common.beans.cartridge.VolumeBean;
+import org.apache.stratos.common.beans.kubernetes.KubernetesClusterBean;
+import org.apache.stratos.common.beans.kubernetes.KubernetesHostBean;
+import org.apache.stratos.common.beans.kubernetes.KubernetesMasterBean;
+import org.apache.stratos.common.beans.partition.ApplicationLevelNetworkPartitionBean;
+import org.apache.stratos.common.beans.policy.autoscale.AutoscalePolicyBean;
+import org.apache.stratos.common.beans.policy.deployment.DeploymentPolicyBean;
 import org.apache.stratos.common.beans.topology.ApplicationInfoBean;
 import org.apache.stratos.common.beans.topology.ApplicationInstanceBean;
 import org.apache.stratos.common.beans.topology.GroupInstanceBean;
-import org.apache.stratos.common.client.StratosManagerServiceClient;
-import org.apache.stratos.manager.artifact.distribution.coordinator.RepositoryNotifier;
 import org.apache.stratos.common.client.AutoscalerServiceClient;
 import org.apache.stratos.common.client.CloudControllerServiceClient;
-import org.apache.stratos.manager.service.stub.domain.ApplicationSignUp;
+import org.apache.stratos.common.client.StratosManagerServiceClient;
+import org.apache.stratos.common.util.CommonUtil;
+import org.apache.stratos.manager.service.stub.domain.application.signup.ApplicationSignUp;
+import org.apache.stratos.manager.service.stub.domain.application.signup.ArtifactRepository;
+import org.apache.stratos.manager.service.stub.domain.domain.mapping.DomainMapping;
 import org.apache.stratos.manager.utils.ApplicationManagementUtil;
 import org.apache.stratos.manager.utils.CartridgeConstants;
-import org.apache.stratos.messaging.domain.applications.Application;
-import org.apache.stratos.messaging.domain.applications.ClusterDataHolder;
-import org.apache.stratos.messaging.domain.applications.Group;
+import org.apache.stratos.messaging.domain.application.Application;
+import org.apache.stratos.messaging.domain.application.ClusterDataHolder;
+import org.apache.stratos.messaging.domain.application.Group;
 import org.apache.stratos.messaging.domain.topology.Cluster;
-import org.apache.stratos.messaging.message.receiver.applications.ApplicationManager;
+import org.apache.stratos.messaging.message.receiver.application.ApplicationManager;
 import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
 import org.apache.stratos.rest.endpoint.exception.RestAPIException;
 import org.apache.stratos.rest.endpoint.util.converter.ObjectConverter;
+import org.wso2.carbon.context.CarbonContext;
 
 import java.rmi.RemoteException;
 import java.util.*;
@@ -79,14 +88,14 @@ public class StratosApiV41Utils {
     private static Log log = LogFactory.getLog(StratosApiV41Utils.class);
 
     // Util methods for cartridges
-    public static void addCartridge(CartridgeDefinitionBean cartridgeDefinition) throws RestAPIException {
+    public static void addCartridge(CartridgeBean cartridgeDefinition) throws RestAPIException {
 
         try {
             if(log.isDebugEnabled()) {
                 log.debug(String.format("Adding cartridge: [cartridge-type] %s ", cartridgeDefinition.getType()));
             }
 
-            CartridgeConfig cartridgeConfig = ObjectConverter.convertCartridgeDefinitionBeanToStubCartridgeConfig(cartridgeDefinition);
+            CartridgeConfig cartridgeConfig = ObjectConverter.convertCartridgeBeanToStubCartridgeConfig(cartridgeDefinition);
             if (cartridgeConfig == null) {
                 throw new RestAPIException("Could not read cartridge definition, cartridge deployment failed");
             }
@@ -129,9 +138,9 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static List<CartridgeDefinitionBean> getCartridgesByFilter(String filter, String criteria, ConfigurationContext configurationContext)
+    public static List<CartridgeBean> getCartridgesByFilter(String filter, String criteria, ConfigurationContext configurationContext)
 			throws RestAPIException {
-		List<CartridgeDefinitionBean> cartridges = null;
+		List<CartridgeBean> cartridges = null;
 
 		if (filter.equals("singleTenant")) {
 			cartridges = getAvailableCartridges(null, false, configurationContext);
@@ -146,11 +155,11 @@ public class StratosApiV41Utils {
 		return cartridges;
 	}
 
-	public static CartridgeDefinitionBean getCartridgeByFilter(String filter, String cartridgeType, ConfigurationContext configurationContext)
+	public static CartridgeBean getCartridgeByFilter(String filter, String cartridgeType, ConfigurationContext configurationContext)
 	throws RestAPIException {
-		List<CartridgeDefinitionBean> cartridges = getCartridgesByFilter(filter, null, configurationContext);
+		List<CartridgeBean> cartridges = getCartridgesByFilter(filter, null, configurationContext);
 
-		for (CartridgeDefinitionBean cartridge : cartridges) {
+		for (CartridgeBean cartridge : cartridges) {
 			if (cartridge.getType().equals(cartridgeType)) {
 				return cartridge;
 			}
@@ -160,12 +169,12 @@ public class StratosApiV41Utils {
 		throw new RestAPIException(msg);
 	}
 
-    private static List<CartridgeDefinitionBean> getAvailableLbCartridges(Boolean multiTenant,
+    private static List<CartridgeBean> getAvailableLbCartridges(Boolean multiTenant,
                                                     ConfigurationContext configurationContext) throws RestAPIException {
-        List<CartridgeDefinitionBean> cartridges = getAvailableCartridges(null, multiTenant,
+        List<CartridgeBean> cartridges = getAvailableCartridges(null, multiTenant,
                 configurationContext);
-        List<CartridgeDefinitionBean> lbCartridges = new ArrayList<CartridgeDefinitionBean>();
-        for (CartridgeDefinitionBean cartridge : cartridges) {
+        List<CartridgeBean> lbCartridges = new ArrayList<CartridgeBean>();
+        for (CartridgeBean cartridge : cartridges) {
             if ("loadbalancer".equalsIgnoreCase(cartridge.getCategory())) {
                 lbCartridges.add(cartridge);
             }
@@ -180,8 +189,8 @@ public class StratosApiV41Utils {
 	 * @return List of the cartridge definitions
 	 * @throws RestAPIException
 	 */
-	private static List<CartridgeDefinitionBean> getAvailableCartridgesByProvider(String provider, ConfigurationContext configurationContext) throws RestAPIException {
-		List<CartridgeDefinitionBean> cartridges = new ArrayList<CartridgeDefinitionBean>();
+	private static List<CartridgeBean> getAvailableCartridgesByProvider(String provider, ConfigurationContext configurationContext) throws RestAPIException {
+		List<CartridgeBean> cartridges = new ArrayList<CartridgeBean>();
 
 		if (log.isDebugEnabled()) {
 			log.debug("Reading cartridges: [provider-name] " + provider );
@@ -214,7 +223,7 @@ public class StratosApiV41Utils {
 						continue;
 					}
 
-                    CartridgeDefinitionBean cartridge = convertCartridgeToCartridgeDefinitionBean(cartridgeInfo);
+                    CartridgeBean cartridge = convertCartridgeToCartridgeDefinitionBean(cartridgeInfo);
 					cartridges.add(cartridge);
 				}
 			} else {
@@ -243,8 +252,8 @@ public class StratosApiV41Utils {
 		return cartridges;
     }
 
-    public static List<CartridgeDefinitionBean> getAvailableCartridges(String cartridgeSearchString, Boolean multiTenant, ConfigurationContext configurationContext) throws RestAPIException {
-        List<CartridgeDefinitionBean> cartridges = new ArrayList<CartridgeDefinitionBean>();
+    public static List<CartridgeBean> getAvailableCartridges(String cartridgeSearchString, Boolean multiTenant, ConfigurationContext configurationContext) throws RestAPIException {
+        List<CartridgeBean> cartridges = new ArrayList<CartridgeBean>();
 
         if (log.isDebugEnabled()) {
             log.debug("Getting available cartridges. Search String: " + cartridgeSearchString + ", Multi-Tenant: " + multiTenant);
@@ -289,7 +298,7 @@ public class StratosApiV41Utils {
                         continue;
                     }
 
-                    CartridgeDefinitionBean cartridge = convertCartridgeToCartridgeDefinitionBean(cartridgeInfo);
+                    CartridgeBean cartridge = convertCartridgeToCartridgeDefinitionBean(cartridgeInfo);
                     cartridges.add(cartridge);
 
 
@@ -326,7 +335,7 @@ public class StratosApiV41Utils {
         return cartridges;
     }
 
-    public static CartridgeDefinitionBean getCartridge(String cartridgeType) throws RestAPIException {
+    public static CartridgeBean getCartridge(String cartridgeType) throws RestAPIException {
         try {
             CartridgeInfo cartridgeInfo = CloudControllerServiceClient.getInstance().getCartridgeInfo(cartridgeType);
             if(cartridgeInfo == null) {
@@ -344,8 +353,8 @@ public class StratosApiV41Utils {
         }
     }
 
-    private static CartridgeDefinitionBean convertCartridgeToCartridgeDefinitionBean(CartridgeInfo cartridgeInfo) {
-        CartridgeDefinitionBean cartridge = new CartridgeDefinitionBean();
+    private static CartridgeBean convertCartridgeToCartridgeDefinitionBean(CartridgeInfo cartridgeInfo) {
+        CartridgeBean cartridge = new CartridgeBean();
         cartridge.setType(cartridgeInfo.getType());
         cartridge.setProvider(cartridgeInfo.getProvider());
         cartridge.setCategory(cartridgeInfo.getCategory());
@@ -438,7 +447,7 @@ public class StratosApiV41Utils {
 
     private static AutoscalerServiceClient getAutoscalerServiceClient() throws RestAPIException {
         try {
-            return AutoscalerServiceClient.getServiceClient();
+            return AutoscalerServiceClient.getInstance();
         } catch (AxisFault axisFault) {
             String errorMsg = "Error while getting AutoscalerServiceClient instance to connect to the "
                     + "Autoscaler. Cause: " + axisFault.getMessage();
@@ -449,7 +458,7 @@ public class StratosApiV41Utils {
 
     // Util methods for Autoscaling policies
 
-    public static void addAutoscalingPolicy(AutoscalePolicy autoscalePolicyBean) throws RestAPIException {
+    public static void addAutoscalingPolicy(AutoscalePolicyBean autoscalePolicyBean) throws RestAPIException {
 
         log.info(String.format("Adding autoscaling policy: [id] %s", autoscalePolicyBean.getId()));
 
@@ -474,7 +483,7 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static void updateAutoscalingPolicy(AutoscalePolicy autoscalePolicyBean) throws RestAPIException {
+    public static void updateAutoscalingPolicy(AutoscalePolicyBean autoscalePolicyBean) throws RestAPIException {
 
         log.info(String.format("Updating autoscaling policy: [id] %s", autoscalePolicyBean.getId()));
 
@@ -497,7 +506,7 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static AutoscalePolicy[] getAutoScalePolicies() throws RestAPIException {
+    public static AutoscalePolicyBean[] getAutoScalePolicies() throws RestAPIException {
 
         org.apache.stratos.autoscaler.stub.autoscale.policy.AutoscalePolicy[] autoscalePolicies = null;
         AutoscalerServiceClient autoscalerServiceClient = getAutoscalerServiceClient();
@@ -514,7 +523,7 @@ public class StratosApiV41Utils {
         return ObjectConverter.convertStubAutoscalePoliciesToAutoscalePolicies(autoscalePolicies);
     }
 
-    public static AutoscalePolicy getAutoScalePolicy(String autoscalePolicyId) throws RestAPIException {
+    public static AutoscalePolicyBean getAutoScalePolicy(String autoscalePolicyId) throws RestAPIException {
 
         org.apache.stratos.autoscaler.stub.autoscale.policy.AutoscalePolicy autoscalePolicy = null;
         AutoscalerServiceClient autoscalerServiceClient = getAutoscalerServiceClient();
@@ -533,7 +542,7 @@ public class StratosApiV41Utils {
         return ObjectConverter.convertStubAutoscalePolicyToAutoscalePolicy(autoscalePolicy);
     }
 
-    public static org.apache.stratos.common.beans.autoscaler.policy.deployment.DeploymentPolicy
+    public static DeploymentPolicyBean
         getDeploymentPolicy(String applicationId) throws RestAPIException {
 
         try {
@@ -547,7 +556,7 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static ApplicationLevelNetworkPartition[] getPartitionGroups(String deploymentPolicyId)
+    public static ApplicationLevelNetworkPartitionBean[] getPartitionGroups(String deploymentPolicyId)
             throws RestAPIException {
 
         org.apache.stratos.autoscaler.stub.deployment.partition.ApplicationLevelNetworkPartition[] partitionGroups = null;
@@ -602,33 +611,20 @@ public class StratosApiV41Utils {
 
     // Util methods for repo actions
 
-    public static void getGitRepositoryNotification(Payload payload) throws RestAPIException {
+    public static void notifyArtifactUpdatedEvent(GitNotificationPayloadBean payload) throws RestAPIException {
         try {
-
-            RepositoryNotifier repoNotification = new RepositoryNotifier();
-            repoNotification.updateRepository(payload.getRepository().getUrl());
-
+            StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
+            serviceClient.notifyArtifactUpdatedEventForRepository(payload.getRepository().getUrl());
         } catch (Exception e) {
-            String msg = "Failed to get git repository notifications. Cause : " + e.getMessage();
-            log.error(msg, e);
-            throw new RestAPIException(msg, e);
+            String message = "Could not send artifact updated event";
+            log.error(message, e);
+            throw new RestAPIException(message, e);
         }
     }
 
-//    public static void synchronizeRepository(CartridgeSubscription cartridgeSubscription) throws RestAPIException {
-//        try {
-//            RepositoryNotifier repoNotification = new RepositoryNotifier();
-//            repoNotification.updateRepository(cartridgeSubscription);
-//        } catch (Exception e) {
-//            String msg = "Failed to get git repository notifications. Cause : " + e.getMessage();
-//            log.error(msg, e);
-//            throw new RestAPIException(msg, e);
-//        }
-//    }
-
     // Util methods for service groups
 
-    public static void addServiceGroup(ServiceGroupDefinition serviceGroupDefinition) throws RestAPIException {
+    public static void addServiceGroup(GroupBean serviceGroupDefinition) throws RestAPIException {
         try {
             if (serviceGroupDefinition == null) {
                 throw new RuntimeException("Service Group definition is null");
@@ -684,9 +680,9 @@ public class StratosApiV41Utils {
                     log.debug("checking subGroups in service group " + serviceGroupDefinition.getName());
                 }
 
-                List<ServiceGroupDefinition> groupDefinitions = serviceGroupDefinition.getGroups();
+                List<GroupBean> groupDefinitions = serviceGroupDefinition.getGroups();
                 List<String> groupNames = new ArrayList<String>();
-                for (ServiceGroupDefinition groupList : groupDefinitions) {
+                for (GroupBean groupList : groupDefinitions) {
                     groupNames.add(groupList.getName());
                 }
 
@@ -706,7 +702,7 @@ public class StratosApiV41Utils {
 
             ServiceGroup serviceGroup = ObjectConverter.convertServiceGroupDefinitionToASStubServiceGroup(serviceGroupDefinition);
 
-            AutoscalerServiceClient asServiceClient = AutoscalerServiceClient.getServiceClient();
+            AutoscalerServiceClient asServiceClient = AutoscalerServiceClient.getInstance();
             asServiceClient.addServiceGroup(serviceGroup);
         } catch (Exception e) {
             String message = "Could not add service group";
@@ -734,20 +730,20 @@ public class StratosApiV41Utils {
         return retVals;
     }
 
-    public static ServiceGroupDefinition getServiceGroupDefinition(String name) throws RestAPIException {
+    public static GroupBean getServiceGroupDefinition(String name) throws RestAPIException {
 
         if (log.isDebugEnabled()) {
             log.debug("Reading service group: [group-name] " + name);
         }
 
         try {
-            AutoscalerServiceClient asServiceClient = AutoscalerServiceClient.getServiceClient();
+            AutoscalerServiceClient asServiceClient = AutoscalerServiceClient.getInstance();
             ServiceGroup serviceGroup = asServiceClient.getServiceGroup(name);
             if (serviceGroup == null) {
                 return null;
             }
 
-            ServiceGroupDefinition serviceGroupDef = ObjectConverter.convertStubServiceGroupToServiceGroupDefinition(serviceGroup);
+            GroupBean serviceGroupDef = ObjectConverter.convertStubServiceGroupToServiceGroupDefinition(serviceGroup);
             return serviceGroupDef;
 
         } catch (Exception e) {
@@ -757,20 +753,20 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static ServiceGroupDefinition[] getServiceGroupDefinitions() throws RestAPIException {
+    public static GroupBean[] getServiceGroupDefinitions() throws RestAPIException {
 
         if (log.isDebugEnabled()) {
             log.debug("Reading service groups...");
         }
 
         try {
-            AutoscalerServiceClient asServiceClient = AutoscalerServiceClient.getServiceClient();
+            AutoscalerServiceClient asServiceClient = AutoscalerServiceClient.getInstance();
             ServiceGroup[] serviceGroups = asServiceClient.getServiceGroups();
             if (serviceGroups == null || serviceGroups.length == 0) {
                 return null;
             }
 
-            ServiceGroupDefinition[] serviceGroupDefinitions = new ServiceGroupDefinition[serviceGroups.length];
+            GroupBean[] serviceGroupDefinitions = new GroupBean[serviceGroups.length];
             for (int i = 0; i < serviceGroups.length; i++) {
                 serviceGroupDefinitions[i] = ObjectConverter.convertStubServiceGroupToServiceGroupDefinition(serviceGroups[i]);
             }
@@ -788,7 +784,7 @@ public class StratosApiV41Utils {
                 log.debug("Removing service group: [name] " + name);
             }
 
-            AutoscalerServiceClient autoscalerServiceClient = AutoscalerServiceClient.getServiceClient();
+            AutoscalerServiceClient autoscalerServiceClient = AutoscalerServiceClient.getInstance();
             autoscalerServiceClient.undeployServiceGroupDefinition(name);
 
         } catch (Exception e) {
@@ -808,13 +804,13 @@ public class StratosApiV41Utils {
      * @param tenantDomain
      * @throws RestAPIException
      */
-    public static void addApplication(ApplicationDefinition appDefinition, ConfigurationContext ctxt,
+    public static void addApplication(ApplicationBean appDefinition, ConfigurationContext ctxt,
                                                    String userName, String tenantDomain)
             throws RestAPIException {
 
         // check if an application with same id already exists
         try {
-            if (AutoscalerServiceClient.getServiceClient().getApplication(appDefinition.getApplicationId()) != null) {
+            if (AutoscalerServiceClient.getInstance().getApplication(appDefinition.getApplicationId()) != null) {
                 String msg = "Application already exists: [application-id] " + appDefinition.getApplicationId();
                 throw new RestAPIException(msg);
             }
@@ -839,7 +835,7 @@ public class StratosApiV41Utils {
         }
 
         try {
-            AutoscalerServiceClient.getServiceClient().addApplication(applicationContext);
+            AutoscalerServiceClient.getInstance().addApplication(applicationContext);
         } catch (AutoScalerServiceApplicationDefinitionExceptionException e) {
             throw new RestAPIException(e);
         } catch (RemoteException e) {
@@ -854,9 +850,7 @@ public class StratosApiV41Utils {
      * @param deploymentPolicy
      * @throws RestAPIException
      */
-    public static void deployApplication(
-            String applicationId,
-            org.apache.stratos.common.beans.autoscaler.policy.deployment.DeploymentPolicy deploymentPolicy)
+    public static void deployApplication(String applicationId, DeploymentPolicyBean deploymentPolicy)
             throws RestAPIException {
 
         try {
@@ -877,16 +871,8 @@ public class StratosApiV41Utils {
                 throw new RestAPIException(message);
             }
 
-            if (!applicationId.equals(deploymentPolicy.getApplicationId())) {
-                String message = String.format("Application id %s does not match with the deployment policy %s",
-                        applicationId, deploymentPolicy.getApplicationId());
-                log.error(message);
-                throw new RestAPIException(message);
-            }
-
             org.apache.stratos.autoscaler.stub.deployment.policy.DeploymentPolicy stubDeploymentPolicy =
-                    ObjectConverter.convetToASDeploymentPolicyPojo(deploymentPolicy);
-
+                    ObjectConverter.convetToASDeploymentPolicyPojo(applicationId, deploymentPolicy);
             autoscalerServiceClient.deployApplication(applicationId, stubDeploymentPolicy);
             if (log.isInfoEnabled()) {
                 log.info(String.format("Application deployed successfully: [application-id] %s", applicationId));
@@ -905,14 +891,10 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static List<ApplicationSubscription> getApplicationSubscriptions(String applicationId) throws RestAPIException {
-        return null;
-    }
-
     public static void removeApplication(String applicationId) throws RestAPIException {
 
         try {
-            AutoscalerServiceClient.getServiceClient().deleteApplication(applicationId);
+            AutoscalerServiceClient.getInstance().deleteApplication(applicationId);
         } catch (RemoteException e) {
             String message = "Could not delete application: [application-id] " + applicationId;
             log.error(message, e);
@@ -920,10 +902,10 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static ApplicationDefinition getApplication(String applicationId) throws RestAPIException {
+    public static ApplicationBean getApplication(String applicationId) throws RestAPIException {
         try {
             return ObjectConverter.convertStubApplicationContextToApplicationDefinition(
-                    AutoscalerServiceClient.getServiceClient().getApplication(applicationId));
+                    AutoscalerServiceClient.getInstance().getApplication(applicationId));
         } catch (RemoteException e) {
             String message = "Could not read application: [application-id] " + applicationId;
             log.error(message, e);
@@ -931,14 +913,14 @@ public class StratosApiV41Utils {
         }
     }
 
-    public static List<ApplicationDefinition> getApplications() throws RestAPIException {
+    public static List<ApplicationBean> getApplications() throws RestAPIException {
         try {
-            List<ApplicationDefinition> applicationDefinitions = new ArrayList<ApplicationDefinition>();
-            ApplicationContext[] applicationContexts = AutoscalerServiceClient.getServiceClient().getApplications();
+            List<ApplicationBean> applicationDefinitions = new ArrayList<ApplicationBean>();
+            ApplicationContext[] applicationContexts = AutoscalerServiceClient.getInstance().getApplications();
             if(applicationContexts != null) {
                 for (ApplicationContext applicationContext : applicationContexts) {
                     if(applicationContext != null) {
-                        ApplicationDefinition applicationDefinition =
+                        ApplicationBean applicationDefinition =
                                 ObjectConverter.convertStubApplicationContextToApplicationDefinition(applicationContext);
                         applicationDefinitions.add(applicationDefinition);
                     }
@@ -1123,7 +1105,7 @@ public class StratosApiV41Utils {
 
     // Util methods for Kubernetes clusters
     
-    public static boolean addKubernetesCluster(KubernetesCluster kubernetesClusterBean) throws RestAPIException {
+    public static boolean addKubernetesCluster(KubernetesClusterBean kubernetesClusterBean) throws RestAPIException {
 
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
@@ -1144,7 +1126,7 @@ public class StratosApiV41Utils {
         return false;
     }
 
-    public static boolean addKubernetesHost(String kubernetesClusterId, KubernetesHost kubernetesHostBean)
+    public static boolean addKubernetesHost(String kubernetesClusterId, KubernetesHostBean kubernetesHostBean)
             throws RestAPIException {
 
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
@@ -1170,7 +1152,7 @@ public class StratosApiV41Utils {
         return false;
     }
 
-    public static boolean updateKubernetesMaster(KubernetesMaster kubernetesMasterBean) throws RestAPIException {
+    public static boolean updateKubernetesMaster(KubernetesMasterBean kubernetesMasterBean) throws RestAPIException {
 
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
@@ -1195,7 +1177,7 @@ public class StratosApiV41Utils {
         return false;
     }
 
-    public static KubernetesCluster[] getAvailableKubernetesClusters() throws RestAPIException {
+    public static KubernetesClusterBean[] getAvailableKubernetesClusters() throws RestAPIException {
 
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
@@ -1212,7 +1194,7 @@ public class StratosApiV41Utils {
         return null;
     }
 
-    public static KubernetesCluster getKubernetesCluster(String kubernetesClusterId) throws RestAPIException {
+    public static KubernetesClusterBean getKubernetesCluster(String kubernetesClusterId) throws RestAPIException {
 
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
@@ -1271,7 +1253,7 @@ public class StratosApiV41Utils {
         return false;
     }
 
-    public static KubernetesHost[] getKubernetesHosts(String kubernetesClusterId) throws RestAPIException {
+    public static KubernetesHostBean[] getKubernetesHosts(String kubernetesClusterId) throws RestAPIException {
 
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
@@ -1279,8 +1261,8 @@ public class StratosApiV41Utils {
                 org.apache.stratos.cloud.controller.stub.domain.kubernetes.KubernetesHost[]
                         kubernetesHosts = cloudControllerServiceClient.getKubernetesHosts(kubernetesClusterId);
 
-                List<KubernetesHost> arrayList = ObjectConverter.convertStubKubernetesHostsToKubernetesHosts(kubernetesHosts);
-                KubernetesHost[] array = new KubernetesHost[arrayList.size()];
+                List<KubernetesHostBean> arrayList = ObjectConverter.convertStubKubernetesHostsToKubernetesHosts(kubernetesHosts);
+                KubernetesHostBean[] array = new KubernetesHostBean[arrayList.size()];
                 array = arrayList.toArray(array);
                 return array;
             } catch (RemoteException e) {
@@ -1295,7 +1277,7 @@ public class StratosApiV41Utils {
         return null;
     }
 
-    public static KubernetesMaster getKubernetesMaster(String kubernetesClusterId) throws RestAPIException {
+    public static KubernetesMasterBean getKubernetesMaster(String kubernetesClusterId) throws RestAPIException {
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
             try {
@@ -1315,7 +1297,7 @@ public class StratosApiV41Utils {
         return null;
     }
 
-    public static boolean updateKubernetesHost(KubernetesHost kubernetesHostBean) throws RestAPIException {
+    public static boolean updateKubernetesHost(KubernetesHostBean kubernetesHostBean) throws RestAPIException {
         CloudControllerServiceClient cloudControllerServiceClient = getCloudControllerServiceClient();
         if (cloudControllerServiceClient != null) {
             org.apache.stratos.cloud.controller.stub.domain.kubernetes.KubernetesHost kubernetesHost =
@@ -1343,16 +1325,18 @@ public class StratosApiV41Utils {
             throw new RestAPIException("Application id is null");
         }
 
-        ApplicationDefinition application = getApplication(applicationId);
-        if(application == null) {
-            throw new RestAPIException("Application does not exist: [application-id] " + applicationId);
+        ApplicationBean applicationBean = getApplication(applicationId);
+        Application application = ApplicationManager.getApplications().getApplication(applicationId);
+
+        if((applicationBean == null) || (application == null)) {
+            throw new RestAPIException("Application not found: [application-id] " + applicationId);
         }
 
-        if(!APPLICATION_STATUS_DEPLOYED.equals(application.getStatus())) {
+        if(!APPLICATION_STATUS_DEPLOYED.equals(applicationBean.getStatus())) {
             throw new RestAPIException("Application has not been deployed: [application-id] " + applicationId);
         }
 
-        if(!application.isMultiTenant()) {
+        if(!applicationBean.isMultiTenant()) {
             throw new RestAPIException("Application signups cannot be added to single-tenant applications");
         }
 
@@ -1360,58 +1344,122 @@ public class StratosApiV41Utils {
             throw new RestAPIException("Application signup is null");
         }
 
-        if(StringUtils.isBlank(applicationSignUpBean.getApplicationId())) {
-            throw new RestAPIException("Application id in application signup is null");
-        }
-
-        if(!applicationId.equals(applicationSignUpBean.getApplicationId())) {
-            throw new RestAPIException("Application id does not match with application id in application signup");
-        }
-
         try {
             if(log.isInfoEnabled()) {
-                log.info(String.format("Adding application signup: [application-id] %s", applicationId));
+                log.info(String.format("Adding applicationBean signup: [application-id] %s", applicationId));
             }
+
+            int tenantId = CarbonContext.getThreadLocalCarbonContext().getTenantId();
+
+            ApplicationSignUp applicationSignUp = ObjectConverter.convertApplicationSignUpBeanToStubApplicationSignUp(applicationSignUpBean);
+            applicationSignUp.setApplicationId(applicationId);
+            applicationSignUp.setTenantId(tenantId);
+
+            // Encrypt artifact repository passwords
+            encryptRepositoryPasswords(applicationSignUp, application.getKey());
 
             StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
-            ApplicationSignUp applicationSignUp = ObjectConverter.convertApplicationSignUpBeanToStubApplicationSignUp(applicationSignUpBean);
-            String signupId = serviceClient.addApplicationSignUp(applicationSignUp);
+            serviceClient.addApplicationSignUp(applicationSignUp);
 
             if(log.isInfoEnabled()) {
-                log.info(String.format("Application signup added successfully: [application-id] %s [signup-id] %s",
-                        applicationId, signupId));
+                log.info(String.format("Application signup added successfully: [application-id] %s [tenant-id] %d",
+                        applicationId, tenantId));
+            }
+
+            serviceClient.notifyArtifactUpdatedEventForSignUp(applicationId, tenantId);
+            if(log.isInfoEnabled()) {
+                log.info(String.format("Artifact updated event sent: [application-id] %s [tenant-id] %d",
+                        applicationId, tenantId));
             }
         } catch (Exception e) {
-            String message = "Could not add application signup: [application-id] " + applicationId;
+            String message = "Error in applicationBean signup: [application-id] " + applicationId;
             log.error(message, e);
             throw new RestAPIException(message, e);
         }
     }
 
-    public static void removeApplicationSignUp(String applicationId, String signUpId) throws RestAPIException {
+    /**
+     * Encrypt artifact repository passwords.
+     * @param applicationSignUp
+     * @param applicationKey
+     */
+    private static void encryptRepositoryPasswords(ApplicationSignUp applicationSignUp, String applicationKey) {
+        if (applicationSignUp.getArtifactRepositories() != null) {
+            for (ArtifactRepository artifactRepository : applicationSignUp.getArtifactRepositories()) {
+                String repoPassword = artifactRepository.getRepoPassword();
+                if ((artifactRepository != null) && (StringUtils.isNotBlank(repoPassword))) {
+                    String encryptedRepoPassword = CommonUtil.encryptPassword(repoPassword,
+                            applicationKey);
+                    artifactRepository.setRepoPassword(encryptedRepoPassword);
+
+                    if (log.isDebugEnabled()) {
+                        log.debug(String.format("Artifact repository password encrypted: [application-id] %s " +
+                                        "[tenant-id] %d [repo-url] %s", applicationSignUp.getApplicationId(),
+                                applicationSignUp.getTenantId(), artifactRepository.getRepoUrl()));
+                    }
+                }
+            }
+        }
+    }
+
+    public static ApplicationSignUpBean getApplicationSignUp(String applicationId) throws RestAPIException {
         if(StringUtils.isBlank(applicationId)) {
             throw new RestAPIException("Application id is null");
         }
 
-        ApplicationDefinition application = getApplication(applicationId);
+        ApplicationBean application = getApplication(applicationId);
         if(application == null) {
             throw new RestAPIException("Application does not exist: [application-id] " + applicationId);
         }
 
-        if(StringUtils.isBlank(signUpId)) {
-            throw new RestAPIException("Signup id is null");
+        if(!application.isMultiTenant()) {
+            throw new RestAPIException("Application singups not available for single-tenant applications");
         }
+
+        int tenantId = CarbonContext.getThreadLocalCarbonContext().getTenantId();
 
         try {
             StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
-            serviceClient.removeApplicationSignUp(signUpId);
+            ApplicationSignUp applicationSignUp = serviceClient.getApplicationSignUp(applicationId, tenantId);
+            if(applicationSignUp != null) {
+                return ObjectConverter.convertStubApplicationSignUpToApplicationSignUpBean(applicationSignUp);
+            }
+            return null;
+        } catch (Exception e) {
+            String message = String.format("Could not get application signup: [application-id] %s [tenant-id] %d",
+                    applicationId, tenantId);
+            log.error(message, e);
+            throw new RestAPIException(message, e);
+        }
+    }
+
+    public static void removeApplicationSignUp(String applicationId) throws RestAPIException {
+        if(StringUtils.isBlank(applicationId)) {
+            throw new RestAPIException("Application id is null");
+        }
+
+        ApplicationBean application = getApplication(applicationId);
+        if(application == null) {
+            throw new RestAPIException("Application does not exist: [application-id] " + applicationId);
+        }
+
+        if(!application.isMultiTenant()) {
+            throw new RestAPIException("Application singups not available for single-tenant applications");
+        }
+
+        int tenantId = CarbonContext.getThreadLocalCarbonContext().getTenantId();
+
+        try {
+            StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
+            serviceClient.removeApplicationSignUp(applicationId, tenantId);
 
             if(log.isInfoEnabled()) {
                 log.info(String.format("Application signup removed successfully: [application-id] %s" +
-                        "[signup-id] %s", applicationId, signUpId));
+                        "[tenant-id] %d", applicationId, tenantId));
             }
         } catch (Exception e) {
-            String message = "Could not remove application signup: [application-id] " + applicationId;
+            String message = String.format("Could not remove application signup: [application-id] %s [tenant-id] %d ",
+                    applicationId, tenantId);
             log.error(message, e);
             throw new RestAPIException(message, e);
         }
@@ -1422,9 +1470,13 @@ public class StratosApiV41Utils {
             throw new RestAPIException("Application id is null");
         }
 
-        ApplicationDefinition application = getApplication(applicationId);
+        ApplicationBean application = getApplication(applicationId);
         if(application == null) {
             throw new RestAPIException("Application does not exist: [application-id] " + applicationId);
+        }
+
+        if(!application.isMultiTenant()) {
+            throw new RestAPIException("Application singups not available for single-tenant applications");
         }
 
         try {
@@ -1443,6 +1495,100 @@ public class StratosApiV41Utils {
             return applicationSignUpBeans;
         } catch (Exception e) {
             String message = "Could not get application signups: [application-id] " + applicationId;
+            log.error(message, e);
+            throw new RestAPIException(message, e);
+        }
+    }
+
+    public static void addApplicationDomainMappings(String applicationId,
+                                                    ApplicationDomainMappingsBean domainMapppingsBean) throws RestAPIException {
+
+        try {
+            int tenantId = CarbonContext.getThreadLocalCarbonContext().getTenantId();
+            if(domainMapppingsBean.getDomainMappings() != null) {
+                StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
+
+                for(DomainMappingBean domainMappingBean : domainMapppingsBean.getDomainMappings()) {
+                    ClusterDataHolder clusterDataHolder = findClusterDataHolder(applicationId, domainMappingBean.getCartridgeAlias());
+
+                    DomainMapping domainMapping = ObjectConverter.convertDomainMappingBeanToStubDomainMapping(domainMappingBean);
+                    domainMapping.setApplicationId(applicationId);
+                    domainMapping.setTenantId(tenantId);
+                    domainMapping.setServiceName(clusterDataHolder.getServiceType());
+                    domainMapping.setClusterId(clusterDataHolder.getClusterId());
+                    serviceClient.addDomainMapping(domainMapping);
+
+                    if(log.isInfoEnabled()) {
+                        log.info(String.format("Domain mapping added: [application-id] %s [tenant-id] %d " +
+                                "[domain-name] %s [context-path] %s", applicationId, tenantId,
+                                domainMapping.getDomainName(), domainMapping.getContextPath()));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            String message = "Could not add domain mappings: [application-id] " + applicationId;
+            log.error(message, e);
+            throw new RestAPIException(message, e);
+        }
+    }
+
+    private static ClusterDataHolder findClusterDataHolder(String applicationId, String cartridgeAlias) {
+        Application application = ApplicationManager.getApplications().getApplication(applicationId);
+        if(application == null) {
+            throw new RuntimeException(String.format("Application not found: [application-id] %s", applicationId));
+        }
+
+        ClusterDataHolder clusterDataHolder = application.getClusterData(cartridgeAlias);
+        if(clusterDataHolder == null) {
+            throw new RuntimeException(String.format("Cluster data not found for cartridge alias: [application-id] %s " +
+                    "[cartridge-alias] %s", applicationId, cartridgeAlias));
+        }
+        return clusterDataHolder;
+    }
+
+    public static void removeApplicationDomainMappings(String applicationId,
+                                                       ApplicationDomainMappingsBean domainMapppingsBean)
+            throws RestAPIException {
+
+        try {
+            int tenantId = CarbonContext.getThreadLocalCarbonContext().getTenantId();
+            StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
+            if(domainMapppingsBean.getDomainMappings() != null) {
+
+                for(DomainMappingBean domainMappingBean : domainMapppingsBean.getDomainMappings()) {
+                    serviceClient.removeDomainMapping(applicationId, tenantId, domainMappingBean.getDomainName());
+
+                    if(log.isInfoEnabled()) {
+                        log.info(String.format("Domain mapping removed: [application-id] %s [tenant-id] %d " +
+                                        "[domain-name] %s", applicationId, tenantId,
+                                domainMappingBean.getDomainName()));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            String message = "Could not remove domain mappings: [application-id] " + applicationId;
+            log.error(message, e);
+            throw new RestAPIException(message, e);
+        }
+    }
+
+    public static List<DomainMappingBean> getApplicationDomainMappings(String applicationId) throws RestAPIException {
+        try {
+            int tenantId = CarbonContext.getThreadLocalCarbonContext().getTenantId();
+            List<DomainMappingBean> domainMappingsBeans = new ArrayList<DomainMappingBean>();
+            StratosManagerServiceClient serviceClient = StratosManagerServiceClient.getInstance();
+            DomainMapping[] domainMappings = serviceClient.getDomainMappings(applicationId, tenantId);
+            if(domainMappings != null) {
+                for(DomainMapping domainMapping : domainMappings) {
+                    if(domainMapping != null) {
+                        DomainMappingBean domainMappingBean = ObjectConverter.convertStubDomainMappingToDomainMappingBean(domainMapping);
+                        domainMappingsBeans.add(domainMappingBean);
+                    }
+                }
+            }
+            return domainMappingsBeans;
+        } catch (Exception e) {
+            String message = "Could not get domain mappings: [application-id] " + applicationId;
             log.error(message, e);
             throw new RestAPIException(message, e);
         }

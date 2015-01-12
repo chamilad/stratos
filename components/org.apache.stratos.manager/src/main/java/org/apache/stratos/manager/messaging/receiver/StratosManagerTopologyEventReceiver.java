@@ -31,34 +31,23 @@ import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
 
 import java.util.concurrent.ExecutorService;
 
-public class StratosManagerTopologyEventReceiver implements Runnable {
+public class StratosManagerTopologyEventReceiver extends TopologyEventReceiver {
 
     private static final Log log = LogFactory.getLog(StratosManagerTopologyEventReceiver.class);
 
-    private TopologyEventReceiver topologyEventReceiver;
-    private boolean terminated;
-	private ExecutorService executorService;
-
     public StratosManagerTopologyEventReceiver() {
-        this.terminated = false;
-        this.topologyEventReceiver = new TopologyEventReceiver();
         addEventListeners();
     }
 
     private void addEventListeners() {
     }
 
-
     @Override
-    public void run() {
+    public void execute() {
+	    super.execute();
 
-	    topologyEventReceiver.setExecutorService(executorService);
-	    topologyEventReceiver.execute();
-
-        log.info("Stratos manager topology event receiver thread started");
+        if(log.isInfoEnabled()) {
+            log.info("Stratos manager topology event receiver thread started");
+        }
     }
-
-	public void setExecutorService(ExecutorService executorService) {
-		this.executorService = executorService;
-	}
 }

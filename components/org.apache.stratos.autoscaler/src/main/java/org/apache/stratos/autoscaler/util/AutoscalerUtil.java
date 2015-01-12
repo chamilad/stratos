@@ -23,12 +23,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import javax.xml.namespace.QName;
 
 import org.apache.axiom.om.OMElement;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.autoscaler.context.AutoscalerContext;
@@ -41,9 +40,9 @@ import org.apache.stratos.autoscaler.registry.RegistryManager;
 import org.apache.stratos.common.Properties;
 import org.apache.stratos.common.Property;
 import org.apache.stratos.common.threading.StratosThreadPool;
-import org.apache.stratos.messaging.domain.applications.Application;
-import org.apache.stratos.messaging.domain.applications.Applications;
-import org.apache.stratos.messaging.domain.applications.ClusterDataHolder;
+import org.apache.stratos.messaging.domain.application.Application;
+import org.apache.stratos.messaging.domain.application.Applications;
+import org.apache.stratos.messaging.domain.application.ClusterDataHolder;
 import org.apache.stratos.messaging.domain.topology.Service;
 import org.apache.stratos.messaging.domain.topology.Topology;
 import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
@@ -448,6 +447,34 @@ public class AutoscalerUtil {
                         "[application] %s", applicationMonitor.getId()));
             }
         }
+    }
+
+    public static String findTenantRange(int tenantId, String tenantPartitions) {
+        if(StringUtils.isNotBlank(tenantPartitions)) {
+            String[] tenantRanges = tenantPartitions.trim().split(",");
+            if(tenantRanges != null) {
+                for(String tenantRange : tenantRanges) {
+                    if((tenantRange != null) && (tenantRange.contains("-"))) {
+                        String[] tenantValues = tenantRange.trim().split("-");
+                        if((tenantValues != null) && (tenantValues.length == 2)) {
+                            if((!tenantValues[0].equals("*")) && (!tenantValues[1].equals("*"))) {
+                                int startValue = Integer.parseInt(tenantValues[0]);
+                                int endValue = Integer.parseInt(tenantValues[1]);
+                                if ((tenantId >= startValue) && (tenantId <= endValue)) {
+                                    return tenantRange;
+                                }
+                            } else if((!tenantValues[0].equals("*")) && (tenantValues[1].equals("*"))) {
+                                int startValue = Integer.parseInt(tenantValues[0]);
+                                if(tenantId >= startValue) {
+                                    return tenantRange;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return "*";
     }
 
 

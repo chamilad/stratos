@@ -33,6 +33,7 @@ import org.apache.stratos.messaging.util.Util;
  * instances.
  */
 public class InstanceNotificationPublisher {
+
 	private static final Log log = LogFactory.getLog(InstanceNotificationPublisher.class);
 
 	public InstanceNotificationPublisher() {
@@ -40,8 +41,8 @@ public class InstanceNotificationPublisher {
 
 	private void publish(Event event) {
 		String topic = Util.getMessageTopicName(event);
-		EventPublisher depsyncEventPublisher = EventPublisherPool.getPublisher(topic);
-		depsyncEventPublisher.publish(event);
+		EventPublisher eventPublisher = EventPublisherPool.getPublisher(topic);
+		eventPublisher.publish(event);
 	}
 
 	/**

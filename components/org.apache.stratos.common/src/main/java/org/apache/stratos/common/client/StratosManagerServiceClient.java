@@ -26,8 +26,11 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.stratos.common.constants.StratosConstants;
 import org.apache.stratos.manager.service.stub.StratosManagerServiceApplicationSignUpExceptionException;
+import org.apache.stratos.manager.service.stub.StratosManagerServiceArtifactDistributionCoordinatorExceptionException;
+import org.apache.stratos.manager.service.stub.StratosManagerServiceDomainMappingExceptionException;
 import org.apache.stratos.manager.service.stub.StratosManagerServiceStub;
-import org.apache.stratos.manager.service.stub.domain.ApplicationSignUp;
+import org.apache.stratos.manager.service.stub.domain.application.signup.ApplicationSignUp;
+import org.apache.stratos.manager.service.stub.domain.domain.mapping.DomainMapping;
 
 import java.rmi.RemoteException;
 
@@ -84,27 +87,29 @@ public class StratosManagerServiceClient {
      *
      * @param applicationSignUp
      */
-    public String addApplicationSignUp(ApplicationSignUp applicationSignUp) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
-        return stub.addApplicationSignUp(applicationSignUp);
+    public void addApplicationSignUp(ApplicationSignUp applicationSignUp) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
+        stub.addApplicationSignUp(applicationSignUp);
     }
 
     /**
      * Remove application signup.
      *
-     * @param signUpId
+     * @param applicationId
+     * @param tenantId
      */
-    public void removeApplicationSignUp(String signUpId) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
-        stub.removeApplicationSignUp(signUpId);
+    public void removeApplicationSignUp(String applicationId, int tenantId) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
+        stub.removeApplicationSignUp(applicationId, tenantId);
     }
 
     /**
      * Get application signup.
      *
-     * @param signUpId
+     * @param applicationId
+     * @param tenantId
      * @return
      */
-    public ApplicationSignUp getApplicationSignUp(String signUpId) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
-        return stub.getApplicationSignUp(signUpId);
+    public ApplicationSignUp getApplicationSignUp(String applicationId, int tenantId) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
+        return stub.getApplicationSignUp(applicationId, tenantId);
     }
 
     /**
@@ -114,5 +119,40 @@ public class StratosManagerServiceClient {
      */
     public ApplicationSignUp[] getApplicationSignUps(String applicationId) throws StratosManagerServiceApplicationSignUpExceptionException, RemoteException {
         return stub.getApplicationSignUps(applicationId);
+    }
+
+    /**
+     * Notify artifact updated event for application signup.
+     *
+     * @param applicationId
+     * @param tenantId
+     * @throws StratosManagerServiceArtifactDistributionCoordinatorExceptionException
+     * @throws RemoteException
+     */
+    public void notifyArtifactUpdatedEventForSignUp(String applicationId, int tenantId) throws StratosManagerServiceArtifactDistributionCoordinatorExceptionException, RemoteException {
+        stub.notifyArtifactUpdatedEventForSignUp(applicationId, tenantId);
+    }
+
+    /**
+     * Notify artifact updated event for artifact repository.
+     *
+     * @param repoUrl
+     * @throws StratosManagerServiceArtifactDistributionCoordinatorExceptionException
+     * @throws RemoteException
+     */
+    public void notifyArtifactUpdatedEventForRepository(String repoUrl) throws StratosManagerServiceArtifactDistributionCoordinatorExceptionException, RemoteException {
+        stub.notifyArtifactUpdatedEventForRepository(repoUrl);
+    }
+
+    public void addDomainMapping(DomainMapping domainMapping) throws RemoteException, StratosManagerServiceDomainMappingExceptionException {
+        stub.addDomainMapping(domainMapping);
+    }
+
+    public void removeDomainMapping(String applicationId, int tenantId, String domainName) throws RemoteException, StratosManagerServiceDomainMappingExceptionException {
+        stub.removeDomainMapping(applicationId, tenantId, domainName);
+    }
+
+    public DomainMapping[] getDomainMappings(String applicationId, int tenantId) throws RemoteException, StratosManagerServiceDomainMappingExceptionException {
+        return stub.getDomainMappings(applicationId, tenantId);
     }
 }

@@ -33,9 +33,9 @@ import org.apache.stratos.autoscaler.monitor.cluster.ClusterMonitor;
 import org.apache.stratos.autoscaler.monitor.component.ApplicationMonitor;
 import org.apache.stratos.autoscaler.monitor.component.GroupMonitor;
 import org.apache.stratos.autoscaler.monitor.component.ParentComponentMonitor;
-import org.apache.stratos.messaging.domain.applications.Application;
-import org.apache.stratos.messaging.domain.applications.Group;
-import org.apache.stratos.messaging.domain.applications.ScalingDependentList;
+import org.apache.stratos.messaging.domain.application.Application;
+import org.apache.stratos.messaging.domain.application.Group;
+import org.apache.stratos.messaging.domain.application.ScalingDependentList;
 import org.apache.stratos.messaging.domain.topology.Cluster;
 import org.apache.stratos.messaging.domain.topology.Service;
 import org.apache.stratos.messaging.domain.topology.Topology;
@@ -173,9 +173,12 @@ public class MonitorFactory {
             application = ApplicationHolder.getApplications().getApplication(applicationId);
             if (application != null) {
                 applicationMonitor = new ApplicationMonitor(application);
-                applicationMonitor.setHasStartupDependents(false);
-                //starting the scheduler of the application monitor
-                applicationMonitor.startScheduler();
+
+                if(null != applicationMonitor){
+                    applicationMonitor.setHasStartupDependents(false);
+                    //starting the scheduler of the application monitor
+                    applicationMonitor.startScheduler();
+                }
             } else {
                 String msg = "Application not found in the topology: [application-id] " + applicationId;
                 throw new TopologyInConsistentException(msg);

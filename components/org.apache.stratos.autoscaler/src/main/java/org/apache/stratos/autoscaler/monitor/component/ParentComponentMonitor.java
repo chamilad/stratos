@@ -45,9 +45,9 @@ import org.apache.stratos.autoscaler.monitor.events.ScalingEvent;
 import org.apache.stratos.autoscaler.monitor.events.ScalingUpBeyondMaxEvent;
 import org.apache.stratos.autoscaler.util.ServiceReferenceHolder;
 import org.apache.stratos.common.threading.StratosThreadPool;
-import org.apache.stratos.messaging.domain.applications.GroupStatus;
-import org.apache.stratos.messaging.domain.applications.ParentComponent;
-import org.apache.stratos.messaging.domain.applications.ScalingDependentList;
+import org.apache.stratos.messaging.domain.application.GroupStatus;
+import org.apache.stratos.messaging.domain.application.ParentComponent;
+import org.apache.stratos.messaging.domain.application.ScalingDependentList;
 import org.apache.stratos.messaging.domain.instance.ClusterInstance;
 import org.apache.stratos.messaging.domain.topology.ClusterStatus;
 import org.apache.stratos.messaging.message.receiver.topology.TopologyManager;
@@ -259,7 +259,7 @@ public abstract class ParentComponentMonitor extends Monitor implements Runnable
 
     @Override
     public void onChildScalingEvent(ScalingEvent scalingEvent) {
-        log.info("Child scaling event received to [group]: " + this.getId()
+        log.info("Child scaling event received to [parent]: " + this.getId()
                 + ", [network partition]: " + scalingEvent.getNetworkPartitionId()
                 + ", [event] " + scalingEvent.getId() + ", [group instance] " + scalingEvent.getInstanceId());
 
@@ -458,15 +458,18 @@ public abstract class ParentComponentMonitor extends Monitor implements Runnable
         if ((terminationList.isEmpty() || allDependentTerminated) &&
                 (parentContexts.isEmpty() || parentsTerminated || allParentsActive)) {
             //Find the non existent monitor by traversing dependency tree
+
+            String errorMessage = String.format("Could not start dependency on termination: [instance-id] %s", instanceId);
+
             try {
                 try {
                     this.startDependencyOnTermination(instanceId);
                 } catch (MonitorNotFoundException e) {
-                    e.printStackTrace();
+                    log.error(errorMessage, e);
                 } catch (PolicyValidationException e) {
-                    e.printStackTrace();
+                    log.error(errorMessage, e);
                 } catch (PartitionValidationException e) {
-                    e.printStackTrace();
+                    log.error(errorMessage, e);
                 }
             } catch (TopologyInConsistentException e) {
                 //TODO revert the siblings and notify parent, change a flag for reverting/un-subscription
