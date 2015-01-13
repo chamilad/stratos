@@ -20,12 +20,13 @@ curl -X POST -H "Content-Type: application/json" -d @'artifacts/group8c.json' -k
 # GET group
 #curl -X GET -H "Content-Type: application/json" -k -v -u admin:admin https://localhost:9443/api/groups/group6
 
-
 sleep 5
+
 # Create application
 curl -X POST -H "Content-Type: application/json" -d @'artifacts/application_definition.json' -k -v -u admin:admin https://localhost:9443/api/applications
 
 sleep 5
+
 # GET application
 # curl -X GET -H "Content-Type: application/json" -k -v -u admin:admin https://localhost:9443/api/applications/myapp1265
 
