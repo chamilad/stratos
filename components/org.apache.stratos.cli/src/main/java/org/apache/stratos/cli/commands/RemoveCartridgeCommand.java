@@ -16,7 +16,6 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
-
 package org.apache.stratos.cli.commands;
 
 import org.apache.commons.cli.Options;
@@ -28,29 +27,22 @@ import org.apache.stratos.cli.utils.CliConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Un-deploy kubernetes host command.
- */
-public class UndeployKubernetesHostCommand implements Command<StratosCommandContext> {
-
-    private static final Logger logger = LoggerFactory.getLogger(UndeployKubernetesHostCommand.class);
-
-    public UndeployKubernetesHostCommand() {
-    }
+public class RemoveCartridgeCommand implements Command<StratosCommandContext> {
+    private static final Logger logger = LoggerFactory.getLogger(RemoveCartridgeCommand.class);
 
     @Override
     public String getName() {
-        return "undeploy-kubernetes-host";
+        return "remove-cartridge";
     }
 
     @Override
     public String getDescription() {
-        return "Undeploy kubernetes host";
+        return "Remove cartridge definition";
     }
 
     @Override
     public String getArgumentSyntax() {
-        return "[cluster-id] [host-id]";
+        return "[cartridge-type]";
     }
 
     @Override
@@ -61,17 +53,18 @@ public class UndeployKubernetesHostCommand implements Command<StratosCommandCont
     @Override
     public int execute(StratosCommandContext context, String[] args) throws CommandException {
         if (logger.isDebugEnabled()) {
-            logger.debug("Executing command: ", getName());
-        }
-
-        if ((args == null) || (args.length <= 0)) {
-            context.getStratosApplication().printUsage(getName());
-            return CliConstants.COMMAND_FAILED;
-        }
-
-        String clusterId = args[0];
-        String hostId = args[1];
-        RestCommandLineService.getInstance().undeployKubernetesHost(clusterId, hostId);
-        return CliConstants.COMMAND_SUCCESSFULL;
+			logger.debug("Executing {} command...", getName());
+		}
+		if (args != null && args.length == 1) {
+			String id = args[0];
+			if (logger.isDebugEnabled()) {
+				logger.debug("Getting Remove cartridge definition info {}", id);
+			}
+			RestCommandLineService.getInstance().undeployCartrigdeDefinition(id);
+			return CliConstants.COMMAND_SUCCESSFULL;
+		} else {
+			context.getStratosApplication().printUsage(getName());
+			return CliConstants.COMMAND_FAILED;
+		}
     }
 }

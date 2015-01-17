@@ -19,7 +19,7 @@
 
 package org.apache.stratos.cli.commands;
 
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.Options;
 import org.apache.stratos.cli.Command;
 import org.apache.stratos.cli.RestCommandLineService;
 import org.apache.stratos.cli.StratosCommandContext;
@@ -29,28 +29,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Un-deploy kubernetes cluster command.
+ * Un-deploy cartridge group command.
  */
-public class UnDeployKubernetesClusterCommand implements Command<StratosCommandContext> {
+public class RemoveCartridgeGroupCommand implements Command<StratosCommandContext> {
 
-    private static final Logger logger = LoggerFactory.getLogger(UnDeployKubernetesClusterCommand.class);
+    private static final Logger logger = LoggerFactory.getLogger(RemoveCartridgeGroupCommand.class);
 
-    public UnDeployKubernetesClusterCommand() {
+    public RemoveCartridgeGroupCommand() {
     }
 
     @Override
     public String getName() {
-        return "undeploy-kubernetes-cluster";
+        return "remove-cartridge-group";
     }
 
     @Override
     public String getDescription() {
-        return "Undeploy kubernetes cluster";
+        return "Remove cartridge group";
     }
 
     @Override
     public String getArgumentSyntax() {
-        return "[cluster-id]";
+        return "[cartridge-group-name]";
     }
 
     @Override
@@ -69,8 +69,8 @@ public class UnDeployKubernetesClusterCommand implements Command<StratosCommandC
             return CliConstants.COMMAND_FAILED;
         }
 
-        String clusterId = args[0];
-        RestCommandLineService.getInstance().undeployKubernetesCluster(clusterId);
+        String serviceGroupName = args[0];
+        RestCommandLineService.getInstance().undeployServiceGroup(serviceGroupName);
         return CliConstants.COMMAND_SUCCESSFULL;
     }
 }

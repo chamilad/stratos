@@ -79,6 +79,16 @@ public class CliConstants {
      * Add tenant
      */
     public static final String ADD_TENANT = "create-tenant";
+    
+    /**
+     * Add application
+     */
+    public static final String ADD_APPLICATION = "create-application";
+    
+    /**
+     * Add application signup
+     */
+    public static final String ADD_APPLICATION_SIGNUP = "add-application";
 
     /**
      * Add user
@@ -95,6 +105,11 @@ public class CliConstants {
      */
     public static final String PARTITION_DEPLOYMENT = "deploy-partition";
 
+    /**
+     * List applications
+     */
+    public static final String LIST_APPLICATIONS = "list-applications";
+    
     /**
      * List partitions
      */
@@ -154,7 +169,15 @@ public class CliConstants {
 	 * Synchronize repository
 	 */
 	public static final String SYNC_ACTION = "sync";
-
+	
+	/**
+     * Describe the application signup
+     */
+    public static final String DESCRIBE_APPLICATION_SIGNUP = "describe-application-signup";
+    /**
+     * Describe the application
+     */
+    public static final String DESCRIBE_APPLICATION = "describe-application";
      /**
      * Describe the cartridge
      */
@@ -167,31 +190,39 @@ public class CliConstants {
      * Describe the auto scaling policy
      */
     public static final String DESCRIBE_AUTO_SCALING_POLICY = "describe-autoscaling-policy";
+    
     /**
-     * Undeploy deploy service
+     * Undeploy application
      */
-    public static final String UNDEPLOY_SERVICE = "undeploy-service";
+    public static final String UNDEPLOY_APPLICATION = "undeploy-application";
+    /**
+     * Undeploy deployed service
+     */
+    public static final String UNDEPLOY_SERVICE = "remove-service";
     /**
      * Undeploy cartridge definition
      */
-    public static final String UNDEPLOY_CARTRIDGE_DEFINITION = "undeploy-cartridge";
+    public static final String UNDEPLOY_CARTRIDGE_DEFINITION = "remove-cartridge";
+    
     /**
      * Delete tenant
      */
-    public static final String DELETE_TENANT = "delete-tenant";
+    public static final String DELETE_TENANT = "remove-tenant";
     /**
      * Delete user
      */
-    public static final String DELETE_USER= "delete-user";
+    public static final String DELETE_USER= "remove-user";
     /**
      * Deactivate tenant
      */
+    
     public static final String DEACTIVATE_TENANT = "deactivate-tenant";
     /**
      * Activate tenant
      */
     public static final String ACTIVATE_TENANT = "activate-tenant";
-     /**
+    
+    /**
      * Describe the deployment policy
      */
     public static final String DESCRIBE_DEPLOYMENT_POLICY = "describe-deployment-policy";
@@ -209,6 +240,16 @@ public class CliConstants {
 	 * List the available policies
 	 */
 	public static final String POLICIES_ACTION = "policies";
+	
+	/**
+     * Delete application
+     */
+    public static final String DELETE_APPLICATION= "remove-application";
+    
+    /**
+     * Delete application signup
+     */
+    public static final String DELETE_APPLICATION_SIGNUP= "remove-application-signup";
 
 	/**
 	 * Exit action
@@ -307,6 +348,10 @@ public class CliConstants {
     public static final String HOST_ID_OPTION = "h";
     public static final String HOST_ID_LONG_OPTION = "host-id";
     
+    // Application options
+    public static final String APPLICATION_ID_OPTION = "app";
+    public static final String APPLICATION_ID_LONG_OPTION = "application-id";
+        
     public static final String RESPONSE_INTERNAL_SERVER_ERROR = "500";
     public static final String RESPONSE_AUTHORIZATION_FAIL = "403";
     public static final String RESPONSE_NO_CONTENT = "204";

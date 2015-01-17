@@ -40,7 +40,7 @@ public class UndeployApplicationCommand implements Command<StratosCommandContext
 
     @Override
     public String getName() {
-        return "undeploy-application";
+        return CliConstants.UNDEPLOY_APPLICATION;
     }
 
     @Override

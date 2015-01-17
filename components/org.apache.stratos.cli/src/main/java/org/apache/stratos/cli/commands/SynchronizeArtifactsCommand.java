@@ -27,44 +27,49 @@ import org.apache.stratos.cli.utils.CliConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class UndeployCartridgeDefinitionCommand implements Command<StratosCommandContext> {
-    private static final Logger logger = LoggerFactory.getLogger(UndeployCartridgeDefinitionCommand.class);
+public class SynchronizeArtifactsCommand implements Command<StratosCommandContext> {
 
-    @Override
-    public String getName() {
-        return CliConstants.UNDEPLOY_CARTRIDGE_DEFINITION;
-    }
+	private static final Logger logger = LoggerFactory.getLogger(SynchronizeArtifactsCommand.class);
 
-    @Override
-    public String getDescription() {
-        return "Undeploy cartridge definition";
-    }
+	public SynchronizeArtifactsCommand() {
+	}
 
-    @Override
-    public String getArgumentSyntax() {
-        return "[Cartridge Type]";
-    }
+	@Override
+	public String getName() {
+		return "synchronize-artifacts";
+	}
 
-    @Override
-    public Options getOptions() {
-        return null;
-    }
+	@Override
+	public String getDescription() {
+		return "Synchronize artifacts with Git repository for cartridge subscriptions";
+	}
 
-    @Override
-    public int execute(StratosCommandContext context, String[] args) throws CommandException {
-        if (logger.isDebugEnabled()) {
+	@Override
+	public String getArgumentSyntax() {
+		return "[cartridge-subscription-alias]";
+	}
+
+	@Override
+	public int execute(StratosCommandContext context, String[] args) throws CommandException {
+		if (logger.isDebugEnabled()) {
 			logger.debug("Executing {} command...", getName());
 		}
 		if (args != null && args.length == 1) {
-			String id = args[0];
+			String cartridgeSubscriptionAlias = args[0];
 			if (logger.isDebugEnabled()) {
-				logger.debug("Getting undeploy cartridge definition info {}", id);
+				logger.debug("Synchronizing repository for cartridge subscription alias {}", cartridgeSubscriptionAlias);
 			}
-			RestCommandLineService.getInstance().undeployCartrigdeDefinition(id);
+
+			RestCommandLineService.getInstance().synchronizeArtifacts(cartridgeSubscriptionAlias);
 			return CliConstants.COMMAND_SUCCESSFULL;
 		} else {
 			context.getStratosApplication().printUsage(getName());
 			return CliConstants.COMMAND_FAILED;
 		}
-    }
+	}
+
+	@Override
+	public Options getOptions() {
+		return null;
+	}
 }

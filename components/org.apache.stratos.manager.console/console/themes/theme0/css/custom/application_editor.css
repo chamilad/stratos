@@ -121,8 +121,8 @@
 
 .link {
     fill: none;
-    stroke: #ccc;
-    stroke-width: 2px;
+    stroke: rgb(0, 0, 255);
+    stroke-width: 0.5px;
 }
 
 .input-false{

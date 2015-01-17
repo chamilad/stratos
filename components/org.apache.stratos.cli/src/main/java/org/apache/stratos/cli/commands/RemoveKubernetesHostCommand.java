@@ -28,40 +28,50 @@ import org.apache.stratos.cli.utils.CliConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DescribeServiceGroupCommand implements Command<StratosCommandContext> {
+/**
+ * Un-deploy kubernetes host command.
+ */
+public class RemoveKubernetesHostCommand implements Command<StratosCommandContext> {
 
-	private static final Logger logger = LoggerFactory.getLogger(DescribeServiceGroupCommand.class);
+    private static final Logger logger = LoggerFactory.getLogger(RemoveKubernetesHostCommand.class);
 
-	public DescribeServiceGroupCommand() {
-	}
+    public RemoveKubernetesHostCommand() {
+    }
 
-	public String getName() {
-		return "describe-service-group";
-	}
+    @Override
+    public String getName() {
+        return "remove-kubernetes-host";
+    }
 
-	public String getDescription() {
-		return "Describe service groups";
-	}
+    @Override
+    public String getDescription() {
+        return "Remove kubernetes host";
+    }
 
-	public String getArgumentSyntax() {
-		return "[group-definition-name]";
-	}
+    @Override
+    public String getArgumentSyntax() {
+        return "[cluster-id] [host-id]";
+    }
 
-	public int execute(StratosCommandContext context, String[] args) throws CommandException {
-		if (logger.isDebugEnabled()) {
-			logger.debug("Executing command: ", getName());
-		}
-		if ((args == null) || (args.length == 0)) {
+    @Override
+    public Options getOptions() {
+        return null;
+    }
+
+    @Override
+    public int execute(StratosCommandContext context, String[] args) throws CommandException {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Executing command: ", getName());
+        }
+
+        if ((args == null) || (args.length <= 0)) {
             context.getStratosApplication().printUsage(getName());
             return CliConstants.COMMAND_FAILED;
-		} else {
-            String groupId = args[0];
-            RestCommandLineService.getInstance().describeServiceGroup(groupId);
-            return CliConstants.COMMAND_SUCCESSFULL;
-		}
-	}
+        }
 
-	public Options getOptions() {
-		return null;
-	}
+        String clusterId = args[0];
+        String hostId = args[1];
+        RestCommandLineService.getInstance().undeployKubernetesHost(clusterId, hostId);
+        return CliConstants.COMMAND_SUCCESSFULL;
+    }
 }

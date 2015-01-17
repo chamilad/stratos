@@ -28,49 +28,40 @@ import org.apache.stratos.cli.utils.CliConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Un-deploy service group command.
- */
-public class UndeployServiceGroupCommand implements Command<StratosCommandContext> {
+public class DescribeApplicationSignupCommand implements Command<StratosCommandContext> {
 
-    private static final Logger logger = LoggerFactory.getLogger(UndeployServiceGroupCommand.class);
+	private static final Logger logger = LoggerFactory.getLogger(DescribeApplicationSignupCommand.class);
 
-    public UndeployServiceGroupCommand() {
-    }
+	public DescribeApplicationSignupCommand() {
+	}
 
-    @Override
-    public String getName() {
-        return "undeploy-service-group";
-    }
+	public String getName() {
+		return CliConstants.DESCRIBE_APPLICATION_SIGNUP;
+	}
 
-    @Override
-    public String getDescription() {
-        return "Undeploy service group";
-    }
+	public String getDescription() {
+		return "Describe application sign up";
+	}
 
-    @Override
-    public String getArgumentSyntax() {
-        return "[service-group-name]";
-    }
+	public String getArgumentSyntax() {
+		return "[application-id]";
+	}
 
-    @Override
-    public Options getOptions() {
-        return null;
-    }
-
-    @Override
-    public int execute(StratosCommandContext context, String[] args) throws CommandException {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Executing command: ", getName());
-        }
-
-        if ((args == null) || (args.length <= 0)) {
+	public int execute(StratosCommandContext context, String[] args) throws CommandException {
+		if (logger.isDebugEnabled()) {
+			logger.debug("Executing command: ", getName());
+		}
+		if ((args == null) || (args.length == 0)) {
             context.getStratosApplication().printUsage(getName());
             return CliConstants.COMMAND_FAILED;
-        }
+		} else {
+            String applicationId = args[0];
+            RestCommandLineService.getInstance().describeApplicationSignup(applicationId);
+            return CliConstants.COMMAND_SUCCESSFULL;
+		}
+	}
 
-        String serviceGroupName = args[0];
-        RestCommandLineService.getInstance().undeployServiceGroup(serviceGroupName);
-        return CliConstants.COMMAND_SUCCESSFULL;
-    }
+	public Options getOptions() {
+		return null;
+	}
 }
