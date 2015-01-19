@@ -138,7 +138,7 @@ public class FaultHandlingWindowProcessor extends WindowProcessor implements Run
     }
 
     /**
-     *  Retrieve the current activated members from the topology and initialize the time stamp map.
+     *  Retrieve the current activated members from the topology and initialize the timestamp map.
      *  This will allow the system to recover from a restart
      *
      *  @param topology Topology model object
@@ -156,7 +156,7 @@ public class FaultHandlingWindowProcessor extends WindowProcessor implements Run
                     if (cluster.getMembers() != null) {
                         for (Member member : cluster.getMembers()) {
                             // we are checking faulty status only in previously activated members
-                            if (member != null && MemberStatus.Activated.equals(member.getStatus())) {
+                            if (member != null && MemberStatus.Active.equals(member.getStatus())) {
                                 // Initialize the member time stamp map from the topology at the beginning
                                 memberTimeStampMap.putIfAbsent(member.getMemberId(), currentTimeStamp);
                             }
@@ -166,9 +166,9 @@ public class FaultHandlingWindowProcessor extends WindowProcessor implements Run
             }
         }
 
-        log.info("Member time stamp map was successfully loaded from the topology.");
+        log.info("Member timestamps were successfully loaded from the topology");
         if (log.isDebugEnabled()){
-            log.debug("Member TimeStamp Map: " + memberTimeStampMap);
+            log.debug("Member timestamp map: " + memberTimeStampMap);
         }
         return true;
     }
