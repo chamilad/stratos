@@ -9,9 +9,15 @@
                 "cartridgeMax": 5,
                 "subscribableInfo": {
                     "alias": "mytomcat",
-                    "autoscalingPolicy": "autoscale_policy_1"
+                    "autoscalingPolicy": "autoscale_policy_1",
+                    "artifactRepository":{
+                        "privateRepo":false,
+                        "repoUrl":"https://github.com/chamilad/tc-hw-artifact-repo.git",
+                        "repoUsername":"",
+                        "repoPassword":""
+                     }
                 }
-            }
+           }
         ]
     }
 }

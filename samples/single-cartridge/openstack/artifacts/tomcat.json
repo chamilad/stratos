@@ -19,7 +19,7 @@
     "iaasProvider": [
         {
             "type": "openstack",
-            "imageId": "RegionOne/a63609be-61df-436f-80bc-d2b6068a4c3a",
+            "imageId": "RegionOne/4c812285-d761-4208-b4b3-d453eace5aff",
             "networkInterfaces": [
                 {
                     "name": "network-non-routable",
@@ -34,7 +34,7 @@
                 },
                 {
                     "name": "keyPair",
-                    "value": "reka"
+                    "value": "chamilad"
                 },
                 {
                     "name": "securityGroups",
