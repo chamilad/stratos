@@ -30,6 +30,8 @@ import org.apache.stratos.messaging.broker.publish.EventPublisherPool;
 import org.apache.stratos.messaging.domain.topology.*;
 import org.apache.stratos.messaging.event.Event;
 import org.apache.stratos.messaging.event.instance.notifier.ArtifactUpdatedEvent;
+import org.apache.stratos.messaging.event.instance.status.InstanceStartedEvent;
+import org.apache.stratos.messaging.event.instance.status.InstanceStatusEvent;
 import org.apache.stratos.messaging.event.topology.CompleteTopologyEvent;
 import org.apache.stratos.messaging.event.topology.MemberInitializedEvent;
 import org.apache.stratos.messaging.listener.instance.status.InstanceActivatedEventListener;
@@ -78,6 +80,7 @@ public class PythonCartridgeAgentTest {
     private ByteArrayOutputStreamLocal outputStream;
     private TopologyEventReceiver topologyEventReceiver;
     private InstanceStatusEventReceiver instanceStatusEventReceiver;
+    private boolean eventReceiverInitiated = false;
 
     public PythonCartridgeAgentTest(ArtifactUpdatedEvent artifactUpdatedEvent, Boolean expectedResult) {
         this.artifactUpdatedEvent = artifactUpdatedEvent;
@@ -95,32 +98,37 @@ public class PythonCartridgeAgentTest {
         serverSocketList = new ArrayList<ServerSocket>();
         executorList = new HashMap<String, Executor>();
 
-        ExecutorService executorService = StratosThreadPool.getExecutorService("TEST_THREAD_POOL", 5);
-        topologyEventReceiver = new TopologyEventReceiver();
-        topologyEventReceiver.setExecutorService(executorService);
-        topologyEventReceiver.execute();
+        if (!this.eventReceiverInitiated) {
+            ExecutorService executorService = StratosThreadPool.getExecutorService("TEST_THREAD_POOL", 5);
+            topologyEventReceiver = new TopologyEventReceiver();
+            topologyEventReceiver.setExecutorService(executorService);
+            topologyEventReceiver.execute();
 
-        instanceStatusEventReceiver = new InstanceStatusEventReceiver();
-        instanceStatusEventReceiver.setExecutorService(executorService);
-        instanceStatusEventReceiver.execute();
+            instanceStatusEventReceiver = new InstanceStatusEventReceiver();
+            instanceStatusEventReceiver.setExecutorService(executorService);
+            instanceStatusEventReceiver.execute();
 
-        this.instanceStarted = false;
-        instanceStatusEventReceiver.addEventListener(new InstanceStartedEventListener() {
-            @Override
-            protected void onEvent(Event event) {
-                log.info("Instance started event received");
-                instanceStarted = true;
-            }
-        });
 
-        this.instanceActivated = false;
-        instanceStatusEventReceiver.addEventListener(new InstanceActivatedEventListener() {
-            @Override
-            protected void onEvent(Event event) {
-                log.info("Instance activated event received");
-                instanceActivated = true;
-            }
-        });
+            this.instanceStarted = false;
+            instanceStatusEventReceiver.addEventListener(new InstanceStartedEventListener() {
+                @Override
+                protected void onEvent(Event event) {
+                    log.info("Instance started event received");
+                    instanceStarted = true;
+                }
+            });
+
+            this.instanceActivated = false;
+            instanceStatusEventReceiver.addEventListener(new InstanceActivatedEventListener() {
+                @Override
+                protected void onEvent(Event event) {
+                    log.info("Instance activated event received");
+                    instanceActivated = true;
+                }
+            });
+
+            this.eventReceiverInitiated = true;
+        }
 
         String agentPath = setupPythonAgent();
         log.info("Starting python cartridge agent...");
@@ -262,6 +270,7 @@ public class PythonCartridgeAgentTest {
         communicatorThread.start();
 
         while (!instanceActivated){
+            log.debug("Waiting until instance activated message is received.");
             sleep(100);
         }
 
