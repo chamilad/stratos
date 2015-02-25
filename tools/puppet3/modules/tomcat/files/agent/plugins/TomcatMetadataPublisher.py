@@ -14,15 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# from plugins.contracts import ICartridgeAgentPlugin
-# from modules.util.log import LogFactory
-#
-#
-# class TestPlugin(ICartridgeAgentPlugin):
-#
-#     def run_plugin(self, values):
-#         log = LogFactory().get_log(__name__)
-#         log.debug("Running test plugin for event %s" % values["EVENT"])
-#         for key, value in values.iteritems():
-#             log.debug("%s => %s" % (key, value))
+
+import mdsclient
+from plugins.contracts import ICartridgeAgentPlugin
+import socket
+
+
+class TomcatMetadataPublisher(ICartridgeAgentPlugin):
+
+    def run_plugin(self, values):
+        member_hostname = socket.gethostname()
+        publish_data = mdsclient.MDSPutRequest()
+        publish_data.properties = [{"key": "TOMCAT_HOSTNAME", "values": member_hostname}]
+
+        mdsclient.put(publish_data)
+

@@ -1,0 +1,9 @@
+[Core]
+Name = TomcatMetadataPublisher to publish tomcat hostname to the metadata service
+Module = TomcatMetadataPublisher
+
+[Documentation]
+Description = InstanceStartedEvent
+Author = Op1
+Version = 0.1
+Website = stratos.apache.org

@@ -22,7 +22,11 @@ class tomcat(
 ){
 
   require java
-  class {'python_agent':}
+  $custom_plugins = ['plugins/TomcatMetadataPublisher.py', 'plugins/TomcatMetadataPublisher.yapsy-plugin']
+  class {'python_agent':
+    custom_plugins=>$custom_plugins,
+    moduele=>'tomcat'
+  }
 
   $package_name    = "apache-tomcat-${tomcat_version}"
   $service_code    = 'apache-tomcat'
