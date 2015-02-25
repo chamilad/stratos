@@ -24,8 +24,7 @@ class TomcatMetadataPublisher(ICartridgeAgentPlugin):
 
     def run_plugin(self, values):
         member_hostname = socket.gethostname()
-        publish_data = mdsclient.MDSPutRequest()
-        publish_data.properties = [{"key": "TOMCAT_HOSTNAME", "values": member_hostname}]
+        hostname_entry = {"key": "TOMCAT_HOSTNAME", "values": member_hostname}
 
-        mdsclient.put(publish_data)
+        mdsclient.put(hostname_entry)
 

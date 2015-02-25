@@ -23,6 +23,7 @@ define python_agent::copy_plugins ($target,$plugins_dir) {
     owner   => $agent::owner,
     group   => $agent::group,
     mode    => '0755',
-    content => template("${plugins_dir}/${name}"),
+    source => "puppet:///modules/${plugins_dir}/${name}"
+    #content => template("${plugins_dir}/${name}"),
   }
 }

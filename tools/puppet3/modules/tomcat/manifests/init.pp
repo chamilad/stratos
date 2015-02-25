@@ -25,7 +25,7 @@ class tomcat(
   $custom_plugins = ['plugins/TomcatMetadataPublisher.py', 'plugins/TomcatMetadataPublisher.yapsy-plugin']
   class {'python_agent':
     custom_plugins=>$custom_plugins,
-    moduele=>'tomcat'
+    module=>'tomcat'
   }
 
   $package_name    = "apache-tomcat-${tomcat_version}"

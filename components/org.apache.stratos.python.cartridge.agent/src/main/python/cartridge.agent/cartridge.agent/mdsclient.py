@@ -21,6 +21,7 @@ import json
 from modules.util.log import LogFactory
 from config import CartridgeAgentConfiguration
 import constants
+import urllib
 
 
 log = LogFactory().get_log(__name__)
@@ -35,7 +36,7 @@ def put(put_req):
     :raises ParameterNotFoundException
     """
     # serialize put request object to json
-    request_data = json.dumps(put_req, default=lambda o: o.__dict__)
+    request_data = urllib.urlencode(json.dumps(put_req))
     alias = config.read_property(constants.CARTRIDGE_ALIAS)
     app_id = config.read_property(constants.APPLICATION_ID)
     resource_url = mds_url + "/metadata/api/application/" + app_id + "/cluster/" + alias + "/property"
@@ -47,10 +48,10 @@ def put(put_req):
 
     try:
         log.debug("Publishing metadata to Metadata service. [URL] %s, [DATA] %s" % (resource_url, request_data))
-        put_response = urllib2.urlopen(put_request, request_data)
-        log.debug("Metadata service response: %s" % put_response.getcode())
+        handler = urllib2.urlopen(put_request, request_data)
+        log.debug("Metadata service response: %s" % handler.getcode())
 
-        return put_response
+        return handler.read()
     except HTTPError as e:
         log.exception("Error while publishing to Metadata service. The server couldn\'t fulfill the request.: %s" % e)
     except URLError as e:
@@ -67,11 +68,6 @@ def update(app_id, alias, data):
 
 def delete(app_id, alias, keys):
     raise NotImplementedError
-
-
-class MDSPutRequest:
-    properties = []
-    """ :type list[MDSEntry] """
 
 
 
