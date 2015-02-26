@@ -29,6 +29,12 @@ ADD files/run.sh /opt/run.sh
 RUN chmod +x /opt/create-admin-user.sh /opt/run.sh && \
     bash /opt/create-admin-user.sh
 
+#------------------------
+# Copy Tomcat related PCA plugins
+#-----------------------
+ADD packs/plugins /mnt/plugins
+
+
 EXPOSE 8080
 
 # -----------------------

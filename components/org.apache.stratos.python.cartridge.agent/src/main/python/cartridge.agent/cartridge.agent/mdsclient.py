@@ -27,6 +27,10 @@ import urllib
 log = LogFactory().get_log(__name__)
 config = CartridgeAgentConfiguration()
 mds_url = config.read_property(constants.METADATA_SERVICE_URL)
+alias = config.read_property(constants.CARTRIDGE_ALIAS)
+app_id = config.read_property(constants.APPLICATION_ID)
+token = config.read_property(constants.TOKEN)
+resource_url = mds_url + "/metadata/api/application/" + app_id + "/cluster/" + alias + "/properties"
 
 
 def put(put_req):
@@ -36,12 +40,8 @@ def put(put_req):
     :raises ParameterNotFoundException
     """
     # serialize put request object to json
-    request_data = urllib.urlencode(json.dumps(put_req))
-    alias = config.read_property(constants.CARTRIDGE_ALIAS)
-    app_id = config.read_property(constants.APPLICATION_ID)
-    resource_url = mds_url + "/metadata/api/application/" + app_id + "/cluster/" + alias + "/property"
+    request_data = json.dumps(put_req, default=lambda o: o.__dict__)
     put_request = urllib2.Request(resource_url)
-    token = config.read_property(constants.TOKEN)
 
     put_request.add_header("Authorization", "Bearer %s" % token)
     put_request.add_header('Content-Type', 'application/json')
@@ -54,12 +54,35 @@ def put(put_req):
         return handler.read()
     except HTTPError as e:
         log.exception("Error while publishing to Metadata service. The server couldn\'t fulfill the request.: %s" % e)
+        return None
     except URLError as e:
         log.exception("Error while publishing to Metadata service. Couldn't reach server URL. : %s" % e)
+        return None
 
 
 def get():
-    raise NotImplementedError
+    """
+    :return :
+    :rtype: MDSResponse
+    """
+    try:
+        log.debug("Retrieving metadata from the Metadata service. [URL] %s" % resource_url)
+        req_response = urllib2.urlopen(resource_url)
+        get_response = json.loads(req_response.read())
+        properties = get_response["properties"]
+        log.debug("Retrieved values from Metadata service: %s" % properties)
+        response_obj = MDSResponse()
+
+        for md_property in properties:
+            response_obj.properties[md_property["key"]] = md_property["values"]
+
+        return response_obj
+    except HTTPError as e:
+        log.exception("Error while retrieving from Metadata service. The server couldn\'t fulfill the request.: %s" % e)
+        return None
+    except URLError as e:
+        log.exception("Error while retrieving from Metadata service. Couldn't reach server URL. : %s" % e)
+        return None
 
 
 def update(app_id, alias, data):
@@ -70,85 +93,16 @@ def delete(app_id, alias, keys):
     raise NotImplementedError
 
 
-
-# def get_launch_param_file_location():
-#     # launch_params_file = os.path.abspath(os.path.dirname(__file__)).split("extensions")[0] + "payload/launch-params"
-#     launch_params_file = "payload/launch-params"
-#     logging.debug("Launch param file location " + launch_params_file)
-#     return launch_params_file
+class MDSPutRequest:
+    properties = []
 
 
-# param_file = get_launch_param_file_location()
-# logging.debug("Payload file location " + param_file)
-#
-# try:
-#     metadata_file = open(param_file, "r")
-# except IOError:
-#     logging.error("Cannot open payload param file at ")
-#     raise RuntimeError
-#
-# metadata_payload_content = metadata_file.read()
-#
-# logging.debug("Payload : " + metadata_payload_content)
-# properties = {}
-# for param in metadata_payload_content.split(","):
-#     if param.strip() != "":
-#         param_value = param.strip().split("=")
-#         properties[param_value[0]] = param_value[1]
-#
-# logging.debug("Payload properties : ")
-# logging.debug(properties)
+class MDSResponse:
+    properties = {}
 
-#
-# def get_paylod_property(name):
-#     logging.debug("[property  " + name + " = " + properties[name] + "]")
-#     return properties[name]
+    def __init__(self, properties=None):
+        self.properties = properties
 
-#
-# def get_metadataserviceurl():
-#     # return properties['METADATASERVICE_URL']
-#     return "https://localhost:9443"
-
-
-# def do_post(url, data):
-#     req = urllib2.Request(url)
-#     token = properties['TOKEN']
-#     if not token:
-#         logging.error("TOKEN is not found in payload")
-#
-#     req.add_header("Authorization", "Bearer %s" % token)
-#     req.add_header('Content-Type', 'application/json')
-#
-#     try:
-#         logging.info('sending to ' + url)
-#         logging.info('sent data ' + json.dumps(data))
-#         response = urllib2.urlopen(req, json.dumps(data))
-#     except HTTPError as e:
-#         logging.error('The server couldn\'t fulfill the request.')
-#         logging.error('Error code .' + e.code)
-#     except URLError as e:
-#         print 'We failed to reach a server.'
-#         logging.error('We failed to reach a server.')
-#         logging.error('Reason: ' + e.reason)
-
-
-# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()
-# my_username = "root"
-# my_password = "root"
-#
-# data = {"key": "MYSQLIP", "values": my_ip}
-# # do_post(resource_url, data)
-# data = {"key": "MYSQL_PASS", "values": my_password}
-# # do_post(resource_url, data)
-#
-# data = {"key": "MYSQL_USERNAME", "values": my_username}
-# #do_post(resource_url, data)
-
-
-# print("************************")
-
-#
-# ===================
 #
 # import urllib2
 # import json

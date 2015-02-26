@@ -17,20 +17,19 @@
 
 import mdsclient
 from plugins.contracts import ICartridgeAgentPlugin
-import socket
 import time
 import zipfile
 import subprocess
 
 
-class TomcatMetadataPublisher(ICartridgeAgentPlugin):
+class TomcatMetadataHandler(ICartridgeAgentPlugin):
 
     def run_plugin(self, values):
         # publish callback and issuer id from tomcat for IS to pickup
-        member_hostname = socket.gethostname()
         publish_data = mdsclient.MDSPutRequest()
         # hostname_entry = {"key": "TOMCAT_HOSTNAME", "values": member_hostname}
-        callback_url = "http://%s/samlreceiver.jsp" % member_hostname
+        cluster_hostname = values["HOST_NAME"]
+        callback_url = "https://%s/samlreceiver.jsp" % cluster_hostname
         saml_callback_entry = {"key": "CALLBACK_URL", "values": callback_url}
         issuer_entry = {"key": "SSO_ISSUER", "values": "travelocity.com"}
         # properties_data = [hostname_entry, saml_callback_entry]
@@ -51,10 +50,15 @@ class TomcatMetadataPublisher(ICartridgeAgentPlugin):
         war_archive = zipfile.ZipFile("%s/travelocity.com.war" % values["APPLICATION_PATH"])
         app_folder = "%s/travelocity.com" % values["APPLICATION_PATH"]
         war_archive.extractall(app_folder)
-        properties_file = "%s/WEB-INF/classes" % app_folder
+        properties_file = "%s/WEB-INF/classes/travelocity.properties" % app_folder
+        avis_properties_file = "%s/WEB-INF/classes/avis.properties" % app_folder
 
         replace_command = "sed -i \"s/SAML_ENDPOINT/%s/g\" %s" % (saml_endpoint, properties_file)
+        avis_replace_command = "sed -i \"s/SAML_ENDPOINT/%s/g\" %s" % (saml_endpoint, avis_properties_file)
         p = subprocess.Popen(replace_command)
+        output, errors = p.communicate()
+
+        p = subprocess.Popen(avis_replace_command)
         output, errors = p.communicate()
 
 
