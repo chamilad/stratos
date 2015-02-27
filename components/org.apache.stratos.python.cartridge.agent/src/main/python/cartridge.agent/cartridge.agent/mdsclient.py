@@ -34,10 +34,10 @@ resource_url = mds_url + "/metadata/api/application/" + app_id + "/cluster/" + a
 
 
 def put(put_req):
-    """
-    :param list put_req:
-    :return:
-    :raises ParameterNotFoundException
+    """ Publish a set of key values to the metadata service
+    :param MDSPutRequest put_req:
+    :return: the response string or None if exception
+    :rtype: str
     """
     # serialize put request object to json
     request_data = json.dumps(put_req, default=lambda o: o.__dict__)
@@ -61,8 +61,8 @@ def put(put_req):
 
 
 def get():
-    """
-    :return :
+    """ Retrieves the key value pairs for the application ID from the metadata service
+    :return : MDSResponse object with properties dictionary as key value pairs
     :rtype: MDSResponse
     """
     try:
@@ -85,55 +85,27 @@ def get():
         return None
 
 
-def update(app_id, alias, data):
+def update(data):
     raise NotImplementedError
 
 
-def delete(app_id, alias, keys):
+def delete(keys):
     raise NotImplementedError
 
 
 class MDSPutRequest:
+    """ Class to encapsulate the publish request.
+    The properties member is a list of dictionaries with the format as follows.
+    {"key": key_name, "values": value}
+    """
     properties = []
 
 
 class MDSResponse:
+    """ Class to encapsulate the response from the metadata service retrieval.
+    The properties member is a dictionary with the retrieved key value pairs.
+    """
     properties = {}
 
     def __init__(self, properties=None):
         self.properties = properties
-
-#
-# import urllib2
-# import json
-# import os
-# import subprocess
-#
-# def get_app_is():
-#     return "single-cartridge-app"
-#
-# def get_alias():
-#     return "tomcat1"
-#
-# def get_metadata_url():
-#     url = "https://localhost:9443/metadata/api/application/" + get_app_is() + "/cluster/" + get_alias() + "/properties"
-#     return url;
-#
-# url = get_metadata_url()
-#
-# response = json.loads(urllib2.urlopen(url).read())
-# propertis = response["properties"]
-#
-# for prop in propertis:
-#     key =  prop["key"]
-#     value = prop["values"]
-#     os.environ[key] = str(value)
-#
-#
-# def restart_service(name):
-#     command = ['/usr/sbin/service', name, 'restart'];
-#     #shell=FALSE for sudo to work.
-#     subprocess.call(command, shell=False)
-#
-# print "Restarting apache server"
-# restart_service("apache2")
