@@ -21,7 +21,6 @@ import json
 from modules.util.log import LogFactory
 from config import CartridgeAgentConfiguration
 import constants
-import urllib
 
 
 log = LogFactory().get_log(__name__)

@@ -1,4 +1,4 @@
-FROM stratos/base-image:4.1.0-beta
+FROM chamilad/base-image:4.1.0-beta
 MAINTAINER dev@stratos.apache.org
 
 # ----------------------
@@ -25,8 +25,8 @@ RUN cd /opt/ && \
 # Add shell scripts
 # -----------------------
 ADD files/create-admin-user.sh /opt/create-admin-user.sh
-ADD files/run.sh /opt/run.sh
-RUN chmod +x /opt/create-admin-user.sh /opt/run.sh && \
+# ADD files/run.sh /opt/run.sh
+RUN chmod +x /opt/create-admin-user.sh && \
     bash /opt/create-admin-user.sh
 
 #------------------------
@@ -40,4 +40,4 @@ EXPOSE 8080
 # -----------------------
 # Define entry point
 # -----------------------
-ENTRYPOINT /usr/local/bin/run | /opt/run.sh | /usr/sbin/sshd -D
+ENTRYPOINT /usr/local/bin/run | /usr/sbin/sshd -D

@@ -1,9 +1,0 @@
-[Core]
-Name = TomcatMetadataHandler to read and publish metadata to and from the metadata service
-Module = TomcatMetadataHandler
-
-[Documentation]
-Description = InstanceActivatedEvent
-Author = Op1
-Version = 0.1
-Website = stratos.apache.org

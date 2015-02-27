@@ -19,11 +19,13 @@ import mdsclient
 from plugins.contracts import ICartridgeAgentPlugin
 from xml.dom.minidom import parse
 import socket
+from modules.util.log import LogFactory
 
 
 class WSO2ISMetaDataHandler(ICartridgeAgentPlugin):
 
     def run_plugin(self, values):
+        log = LogFactory().get_log(__name__)
         # read tomcat app related values from metadata
         mds_response = mdsclient.get()
         issuer = mds_response.properties["SSO_ISSUER"]
@@ -70,16 +72,27 @@ class WSO2ISMetaDataHandler(ICartridgeAgentPlugin):
         sp_entry_sign_resp = sp_dom.createElement("SignResponse")
         sp_entry_sign_resp.appendChild(sp_dom.createTextNode("true"))
 
+        sp_entry_sign_assert = sp_dom.createElement("SignAssertion")
+        sp_entry_sign_assert.appendChild(sp_dom.createTextNode("true"))
+
+        sp_entry_single_logout = sp_dom.createElement("EnableSingleLogout")
+        sp_entry_single_logout.appendChild(sp_dom.createTextNode("true"))
+
+        sp_entry_attribute_profile = sp_dom.createElement("EnableAttributeProfile")
+        sp_entry_attribute_profile.appendChild(sp_dom.createTextNode("true"))
+
         sp_entry.appendChild(sp_entry_issuer)
         sp_entry.appendChild(sp_entry_acs)
         sp_entry.appendChild(sp_entry_sign_resp)
+        sp_entry.appendChild(sp_entry_sign_assert)
+        sp_entry.appendChild(sp_entry_single_logout)
+        sp_entry.appendChild(sp_entry_attribute_profile)
 
         sps_element.appendChild(sp_entry)
 
         with open(sso_idp_file, 'w+') as f:
             root_element.writexml(f, newl="\n")
         # root_element.writexml(f)
-
 
         # data = json.loads(urllib.urlopen("http://ip.jsontest.com/").read())
         # ip_entry = data["ip"]
@@ -93,3 +106,10 @@ class WSO2ISMetaDataHandler(ICartridgeAgentPlugin):
         publish_data.properties = properties_data
 
         mdsclient.put(publish_data)
+
+        # start servers
+        log.info("Starting WSO2 IS server")
+        wso2is_start_command = "exec ${CARBON_HOME}/bin/wso2server.sh start"
+        p = subprocess.Popen(wso2is_start_command)
+        output, errors = p.communicate()
+        log.debug("WSO2 IS server started")

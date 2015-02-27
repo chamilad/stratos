@@ -19,7 +19,7 @@
 #
 # --------------------------------------------------------------
 
-FROM debian:7.7
+FROM ubuntu:utopic
 MAINTAINER dev@stratos.apache.org
 
 # ------------------

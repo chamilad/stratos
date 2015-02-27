@@ -22,7 +22,7 @@ import zipfile
 import subprocess
 
 
-class TomcatMetadataHandler(ICartridgeAgentPlugin):
+class TomcatWSO2ISMetadataPublisher(ICartridgeAgentPlugin):
 
     def run_plugin(self, values):
         # publish callback and issuer id from tomcat for IS to pickup
@@ -37,29 +37,6 @@ class TomcatMetadataHandler(ICartridgeAgentPlugin):
         publish_data.properties = properties_data
 
         mdsclient.put(publish_data)
-
-        # wait till SAML_ENDPOINT becomes available
-        mds_response = None
-        while mds_response is None:
-            time.sleep(5)
-            mds_response = mdsclient.get()
-
-        saml_endpoint = mds_response.properties["SAML_ENDPOINT"]
-
-        # edit properties file of the app.
-        war_archive = zipfile.ZipFile("%s/travelocity.com.war" % values["APPLICATION_PATH"])
-        app_folder = "%s/travelocity.com" % values["APPLICATION_PATH"]
-        war_archive.extractall(app_folder)
-        properties_file = "%s/WEB-INF/classes/travelocity.properties" % app_folder
-        avis_properties_file = "%s/WEB-INF/classes/avis.properties" % app_folder
-
-        replace_command = "sed -i \"s/SAML_ENDPOINT/%s/g\" %s" % (saml_endpoint, properties_file)
-        avis_replace_command = "sed -i \"s/SAML_ENDPOINT/%s/g\" %s" % (saml_endpoint, avis_properties_file)
-        p = subprocess.Popen(replace_command)
-        output, errors = p.communicate()
-
-        p = subprocess.Popen(avis_replace_command)
-        output, errors = p.communicate()
 
 
 
